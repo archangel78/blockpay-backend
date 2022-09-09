@@ -1,0 +1,8 @@
+create database blockpay_backend;
+CREATE TABLE Users (
+    accountName int NOT NULL,
+    emailId varchar(255) NOT NULL,
+    passwordHash varchar(255) NOT NULL,
+    PRIMARY KEY (accountName),
+    UNIQUE (emailId, accountName)
+);
