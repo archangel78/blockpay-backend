@@ -1,12 +1,13 @@
 package handler
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/archangel78/blockpay-backend/app/common"
 )
 
-func CreateAccount(db string, w http.ResponseWriter, r *http.Request) {
+func CreateAccount(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	urlParams := r.URL.Query()
 	expectedParams := []string{"emailId", "accountName", "password"}
 	valid, err, output := common.VerifyRequest(expectedParams, urlParams)
