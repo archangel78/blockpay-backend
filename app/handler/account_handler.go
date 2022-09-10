@@ -1,16 +1,23 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
+
+	"github.com/archangel78/blockpay-backend/app/common"
 )
 
-func CreateAccount(w http.ResponseWriter, r *http.Request) {
+func CreateAccount(db string, w http.ResponseWriter, r *http.Request) {
 	urlParams := r.URL.Query()
-	if emailId, exists := urlParams["emailId"]; exists {
-		if password, exists := urlParams["password"]; exists{
-			fmt.Println(emailId, password)
+	expectedParams := []string{"emailId", "accountName", "password"}
+	valid, err, output := common.VerifyRequest(expectedParams, urlParams)
+	if !valid {
+		if err != nil {
+			common.RespondError(w, 400, err.Error())
+		} else {
+			common.RespondError(w, 400, "")
 		}
+		return
 	}
+
+	common.RespondJSON(w, 200, output)
 }
- 
