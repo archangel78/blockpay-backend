@@ -2,5 +2,5 @@
     "protocol": "mysql",
     "hostname": "127.0.0.1",
     "port": "3306",
-    "databaseName": "blockpay-backend"
+    "databaseName": "blockpay_backend"
 }

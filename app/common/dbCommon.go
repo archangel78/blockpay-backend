@@ -3,8 +3,8 @@ package common
 import (
 	"database/sql"
 
-	_ "github.com/go-sql-driver/mysql"
 	config "github.com/archangel78/blockpay-backend/mysql-config"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 func OpenDbConnection(dbConfig *config.DbConfig) (*sql.DB, error) {
@@ -15,4 +15,12 @@ func OpenDbConnection(dbConfig *config.DbConfig) (*sql.DB, error) {
 		return nil, err
 	}
 	return db, nil
+}
+
+func GetPreparedStatement(db *sql.DB, preparedString string) (*sql.Stmt, error) {
+	stmt, err := db.Prepare(preparedString)
+	if err != nil {
+		return nil, err
+	}
+	return stmt, err
 }

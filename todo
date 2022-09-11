@@ -1,0 +1,2 @@
+1. write unit tests for CRUD operations in mysql
+2. Ensure concurrency and db deadlock does not occur

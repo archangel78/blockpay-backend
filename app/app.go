@@ -26,6 +26,8 @@ func (app App) Initialize(dbConfig *config.DbConfig) {
 		fmt.Println(err)
 		return
 	}
+
+	defer db.Close()
 	app.db = db
 
 	app.SetRoutes()
