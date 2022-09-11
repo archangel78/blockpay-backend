@@ -1,9 +1,10 @@
 package handler
 
 import (
-	"database/sql"
 	"fmt"
 	"net/http"
+	"database/sql"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/archangel78/blockpay-backend/app/common"
 )
@@ -34,7 +35,9 @@ func CreateAccount(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = db.Exec("INSERT INTO Users (accountName, emailId, passwordHash) VALUES (?, ?, ?)", neededParams["accountName"], neededParams["emailId"], neededParams["password"])
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(neededParams["password"]), bcrypt.DefaultCost)
+
+	_, err = db.Exec("INSERT INTO Users (accountName, emailId, passwordHash) VALUES (?, ?, ?)", neededParams["accountName"], neededParams["emailId"], hashedPassword)
 
 	if err != nil {
 		fmt.Println("CreateAccount insert exec error: ", err)
