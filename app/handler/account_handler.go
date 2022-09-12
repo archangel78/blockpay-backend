@@ -10,9 +10,9 @@ import (
 )
 
 func CreateAccount(db *sql.DB, w http.ResponseWriter, r *http.Request) {
-	urlParams := r.URL.Query()
-	expectedParams := []string{"emailId", "accountName", "password"}
-	valid, err, neededParams := common.VerifyRequest(expectedParams, urlParams)
+	headers := r.Header
+	expectedParams := []string{"Emailid", "Accountname", "Password"}
+	valid, err, neededParams := common.VerifyHeaders(expectedParams, headers)
 	if !valid {
 		if err != nil {
 			common.RespondError(w, 400, err.Error())
@@ -22,7 +22,7 @@ func CreateAccount(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := db.Query("select * from Users where accountName=? or emailId=?", neededParams["accountName"], neededParams["emailId"])
+	result, err := db.Query("select * from Users where accountName=? or emailId=?", neededParams["Accountname"], neededParams["Emailid"])
 
 	if err != nil {
 		fmt.Println("CreateAccount Select query error: ", err)
@@ -35,9 +35,9 @@ func CreateAccount(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(neededParams["password"]), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(neededParams["Password"]), bcrypt.DefaultCost)
 
-	_, err = db.Exec("INSERT INTO Users (accountName, emailId, passwordHash) VALUES (?, ?, ?)", neededParams["accountName"], neededParams["emailId"], hashedPassword)
+	_, err = db.Exec("INSERT INTO Users (accountName, emailId, passwordHash) VALUES (?, ?, ?)", neededParams["Accountname"], neededParams["Emailid"], hashedPassword)
 
 	if err != nil {
 		fmt.Println("CreateAccount insert exec error: ", err)

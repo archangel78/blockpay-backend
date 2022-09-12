@@ -7,7 +7,7 @@ import (
 	"net/url"
 )
 
-func VerifyRequest(expectedParams []string, urlParams url.Values) (bool, error, map[string]string) {
+func VerifyUrlParams (expectedParams []string, urlParams url.Values) (bool, error, map[string]string) {
 	output := make(map[string]string)
 	for _, param := range expectedParams {
 		value, exists := urlParams[param]
@@ -16,6 +16,19 @@ func VerifyRequest(expectedParams []string, urlParams url.Values) (bool, error, 
 			return false, error, nil
 		}
 		output[param] = value[0]
+	}
+	return true, nil, output
+}
+
+func VerifyHeaders (expectedHeaders []string, headers http.Header) (bool, error, map[string]string) {
+	output := make(map[string]string)
+	for _, header := range expectedHeaders {
+		value, exists := headers[header]
+		if !exists{
+			error := errors.New(header+" header does not exist")
+			return false, error, nil
+		}
+		output[header] = value[0]
 	}
 	return true, nil, output
 }

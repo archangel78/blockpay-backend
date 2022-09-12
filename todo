@@ -1,2 +1,8 @@
-1. write unit tests for CRUD operations in mysql
-2. Ensure concurrency and db deadlock does not occur
+1. Ensure concurrency and db deadlock does not occur
+
+
+Unit tests to be written:
+1. CRUD Operations mysql
+2. Create account
+    2. a. Create existing account
+    2. b. Create valid account
