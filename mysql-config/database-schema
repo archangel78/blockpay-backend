@@ -1,5 +1,5 @@
-create database blockpay_backend;
-use blockpay_backend;
+CREATE database blockpay_backend;
+USE blockpay_backend;
 CREATE TABLE if not exists Users (
     accountName varchar(255) NOT NULL,
     emailId varchar(255) NOT NULL,
