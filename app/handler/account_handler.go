@@ -9,6 +9,64 @@ import (
 	"github.com/archangel78/blockpay-backend/app/common"
 )
 
+type AccountDetails struct {
+	AccountName string	`json:"accountName"`
+	EmailId string		`json:"emailId"`
+	PasswordHash string	`json:"passwordHash"`
+}
+
+func Login(db *sql.DB, w http.ResponseWriter, r *http.Request) {
+	headers := r.Header
+	password, passwordExists := headers["Password"]
+	
+	if !passwordExists {
+		common.RespondError(w, 400, "Password header does not exist")
+		return
+	}
+
+	var result *sql.Rows
+	var err error
+	aName, aNameLogin := headers["Accountname"]
+	emailId, emailLogin := headers["Emailid"]
+
+	if aNameLogin {
+		result, err = db.Query("select * from Users where accountName=?", aName[0])
+		
+		if err != nil {
+			common.RespondError(w, 400, "Some internal error occurred LISEAN")
+			return
+		}
+	} else if emailLogin {
+		result, err = db.Query("select * from Users where emailId=?", string(emailId[0]))
+
+		if err != nil {
+			common.RespondError(w, 400, "Some internal error occurred LISEEID")
+			return
+		}
+	} else {
+		common.RespondError(w, 400, "Emailid or Accountname heaader does not exist")
+		return
+	}
+
+	for result.Next() {
+		var accountDetails AccountDetails
+		err = result.Scan(&accountDetails.AccountName, &accountDetails.EmailId, &accountDetails.PasswordHash)
+
+		if err != nil {
+			common.RespondError(w, 400, "Some internal error occurred LIANSC")
+			return
+		}
+
+		err = bcrypt.CompareHashAndPassword([]byte(accountDetails.PasswordHash), []byte(password[0]))
+		if err == nil {
+			common.RespondJSON(w, 200, map[string]string{"accountName": accountDetails.AccountName})
+			return
+		}
+		break
+	}	
+	common.RespondError(w, 401, "Unauthorized")
+}
+
 func CreateAccount(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	headers := r.Header
 	expectedParams := []string{"Emailid", "Accountname", "Password"}
