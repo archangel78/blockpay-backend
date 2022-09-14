@@ -1,5 +1,6 @@
 1. Ensure concurrency and db deadlock does not occur
 2. Ensure CORS is disabled
+3. Reduce redundancy in jwt session (split generate pair into two funcs. reuse at regeneration)
 
 
 Unit tests to be written:

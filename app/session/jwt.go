@@ -44,7 +44,7 @@ func GenerateTokenPair(accountName string, emailId string) (*JwtTokens, error) {
 	}
 	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessTokenClaims)
 
-	signedAccessToken, err := accessToken.SignedString(os.Getenv("JWT_ACCESS_TOKEN_SECRET_KEY"))
+	signedAccessToken, err := accessToken.SignedString([]byte(os.Getenv("JWT_ACCESS_TOKEN_SECRET_KEY")))
 
 	if err != nil {
 		return nil, err
@@ -63,7 +63,7 @@ func GenerateTokenPair(accountName string, emailId string) (*JwtTokens, error) {
 	}
 	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshTokenClaims)
 
-	signedRefreshToken, err := refreshToken.SignedString(os.Getenv("JWT_REFRESH_TOKEN_SECRET_KEY"))
+	signedRefreshToken, err := refreshToken.SignedString([]byte(os.Getenv("JWT_REFRESH_TOKEN_SECRET_KEY")))
 
 	if err != nil {
 		return nil, err
@@ -115,22 +115,22 @@ func RenewAccessToken(signedAccessToken string, signedRefreshToken string) (*Jwt
 	return &JwtTokens{AccessTokenSigned: newSignedAccessToken}, nil
 }
 
-func VerifyAccessToken(signedAccessToken string) (*Payload, bool) {
+func VerifyAccessToken(signedAccessToken string) (*Payload, bool, error) {
 	atClaims := &AccessTokenClaims{}
 	token, err := jwt.ParseWithClaims(signedAccessToken, atClaims, func(t *jwt.Token) (interface{}, error) {
-		return os.Getenv("JWT_ACCESS_TOKEN_SECRET_KEY"), nil
+		return []byte(os.Getenv("JWT_ACCESS_TOKEN_SECRET_KEY")), nil
 	})
 
 	if err != nil {
-		return nil, false
+		return nil, false, err
 	}
 
 	if !token.Valid {
-		return nil, false
+		return nil, false, errors.New("Invalid token")
 	}
 	
 	return &Payload{
 		AccountName: atClaims.AccountName,
 		EmailId:     atClaims.EmailId,
-	}, false
+	}, false, nil
 }

@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
-	"database/sql"
+	"strings"
+
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/archangel78/blockpay-backend/app/common"
@@ -18,7 +20,17 @@ type AccountDetails struct {
 
 func TestJwtAccessToken(w http.ResponseWriter, r *http.Request) {
 	accessToken := r.Header["Accesstoken"]
-	_, valid := session.VerifyAccessToken(accessToken[0])
+	_, valid, err := session.VerifyAccessToken(accessToken[0])
+
+	if err != nil {
+		fmt.Println(err)
+		if strings.Contains(err.Error(), "expired"){
+			common.RespondJSON(w, 200, map[string]string{"valid": "expired"})	
+			return
+		}
+		common.RespondJSON(w, 401, map[string]string{"valid": "false"})
+		return
+	}
 	if valid {
 		common.RespondJSON(w, 200, map[string]string{"valid": "true"})
 	}
@@ -27,7 +39,12 @@ func TestJwtAccessToken(w http.ResponseWriter, r *http.Request) {
 
 func RenewToken(w http.ResponseWriter, r *http.Request) {
 	accessToken := r.Header["Accesstoken"]
-	_, valid := session.VerifyAccessToken(accessToken[0])
+	_, valid, err := session.VerifyAccessToken(accessToken[0])
+
+	if err != nil {
+		fmt.Println(err)
+		common.RespondJSON(w, 401, map[string]string{"valid": "false"})
+	}
 	if valid {
 		common.RespondJSON(w, 200, map[string]string{"valid": "true"})
 	}
@@ -81,6 +98,7 @@ func Login(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 			jwtTokens, err := session.GenerateTokenPair(accountDetails.AccountName, accountDetails.EmailId)
 
 			if err != nil {
+				fmt.Println(err)
 				common.RespondError(w, 401, "Unauthorized")
 				return
 			}
