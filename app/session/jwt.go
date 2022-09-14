@@ -1,9 +1,11 @@
 package session
 
 import (
-	"github.com/golang-jwt/jwt"
+	"errors"
 	"os"
 	"time"
+
+	"github.com/golang-jwt/jwt"
 )
 
 type Payload struct {
@@ -31,7 +33,7 @@ type JwtTokens struct {
 
 func GenerateTokenPair(accountName string, emailId string) (*JwtTokens, error) {
 	// Create access token
-	atExpirationTime := time.Now().Add(5 * time.Minute)
+	atExpirationTime := time.Now().Add(15 * time.Minute)
 
 	accessTokenClaims := &AccessTokenClaims{
 		AccountName: accountName,
@@ -73,7 +75,47 @@ func GenerateTokenPair(accountName string, emailId string) (*JwtTokens, error) {
 	}, nil
 }
 
-func VerifyAccessToken(signedAccessToken string, accountName string) (*Payload, bool) {
+func RenewAccessToken(signedAccessToken string, signedRefreshToken string) (*JwtTokens, error) {
+	atClaims := &AccessTokenClaims{}
+	atToken, err := jwt.ParseWithClaims(signedAccessToken, atClaims, func(t *jwt.Token) (interface{}, error) {
+		return os.Getenv("JWT_ACCESS_TOKEN_SECRET_KEY"), nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	rtClaims := &RefreshTokenClaims{}
+	rtToken, err := jwt.ParseWithClaims(signedRefreshToken, rtClaims, func(t *jwt.Token) (interface{}, error) {
+		return os.Getenv("JWT_REFRESH_TOKEN_SECRET_KEY"), nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !atToken.Valid || !rtToken.Valid {
+		return nil, errors.New("Invalid token sent")
+	}
+
+	if atClaims.AccountName != rtClaims.AccountName || atClaims.EmailId != rtClaims.Emailid {
+		return nil, errors.New("Invalid token sent")
+	}
+
+	if time.Unix(atClaims.ExpiresAt, 0).Sub(time.Now()) > 30*time.Second {
+		return nil, errors.New("Too early to renew")
+	}
+
+	newAtExpirationTime := time.Now().Add(15 * time.Minute)
+	atClaims.StandardClaims.ExpiresAt = newAtExpirationTime.Unix()
+	
+	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, atClaims)
+	newSignedAccessToken, err := accessToken.SignedString(os.Getenv("JWT_ACCESS_TOKEN_SECRET_KEY"))
+
+	return &JwtTokens{AccessTokenSigned: newSignedAccessToken}, nil
+}
+
+func VerifyAccessToken(signedAccessToken string) (*Payload, bool) {
 	atClaims := &AccessTokenClaims{}
 	token, err := jwt.ParseWithClaims(signedAccessToken, atClaims, func(t *jwt.Token) (interface{}, error) {
 		return os.Getenv("JWT_ACCESS_TOKEN_SECRET_KEY"), nil
@@ -84,10 +126,6 @@ func VerifyAccessToken(signedAccessToken string, accountName string) (*Payload, 
 	}
 
 	if !token.Valid {
-		return nil, false
-	}
-
-	if accountName != atClaims.AccountName {
 		return nil, false
 	}
 	
