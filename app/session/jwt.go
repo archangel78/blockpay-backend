@@ -132,5 +132,5 @@ func VerifyAccessToken(signedAccessToken string) (*Payload, bool, error) {
 	return &Payload{
 		AccountName: atClaims.AccountName,
 		EmailId:     atClaims.EmailId,
-	}, false, nil
+	}, true, nil
 }

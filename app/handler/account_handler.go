@@ -23,7 +23,6 @@ func TestJwtAccessToken(w http.ResponseWriter, r *http.Request) {
 	_, valid, err := session.VerifyAccessToken(accessToken[0])
 
 	if err != nil {
-		fmt.Println(err)
 		if strings.Contains(err.Error(), "expired"){
 			common.RespondJSON(w, 200, map[string]string{"valid": "expired"})	
 			return
@@ -33,6 +32,7 @@ func TestJwtAccessToken(w http.ResponseWriter, r *http.Request) {
 	}
 	if valid {
 		common.RespondJSON(w, 200, map[string]string{"valid": "true"})
+		return
 	}
 	common.RespondJSON(w, 401, map[string]string{"valid": "false"})
 }
