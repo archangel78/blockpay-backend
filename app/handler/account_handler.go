@@ -2,7 +2,6 @@ package handler
 
 import (
 	"database/sql"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -18,37 +17,18 @@ type AccountDetails struct {
 	PasswordHash string	`json:"passwordHash"`
 }
 
-func TestJwtAccessToken(w http.ResponseWriter, r *http.Request) {
-	accessToken := r.Header["Accesstoken"]
-	_, valid, err := session.VerifyAccessToken(accessToken[0])
-
-	if err != nil {
-		if strings.Contains(err.Error(), "expired"){
-			common.RespondJSON(w, 200, map[string]string{"valid": "expired"})	
-			return
-		}
-		common.RespondJSON(w, 401, map[string]string{"valid": "false"})
-		return
-	}
-	if valid {
-		common.RespondJSON(w, 200, map[string]string{"valid": "true"})
-		return
-	}
-	common.RespondJSON(w, 401, map[string]string{"valid": "false"})
-}
-
 func RenewToken(w http.ResponseWriter, r *http.Request) {
 	accessToken := r.Header["Accesstoken"]
-	_, valid, err := session.VerifyAccessToken(accessToken[0])
+	refreshToken := r.Header["Refreshtoken"]
+
+	token, err := session.RenewAccessToken(accessToken[0], refreshToken[0])
 
 	if err != nil {
-		fmt.Println(err)
-		common.RespondJSON(w, 401, map[string]string{"valid": "false"})
+		common.RespondJSON(w, 401, map[string]string{"message": "Invalid tokens"})
+		return
 	}
-	if valid {
-		common.RespondJSON(w, 200, map[string]string{"valid": "true"})
-	}
-	common.RespondJSON(w, 401, map[string]string{"valid": "false"})
+	
+	common.RespondJSON(w, 401, map[string]string{"accessToken": token.AccessTokenSigned, "message": "successful"})
 }
 
 func Login(db *sql.DB, w http.ResponseWriter, r *http.Request) {
@@ -98,12 +78,11 @@ func Login(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 			jwtTokens, err := session.GenerateTokenPair(accountDetails.AccountName, accountDetails.EmailId)
 
 			if err != nil {
-				fmt.Println(err)
 				common.RespondError(w, 401, "Unauthorized")
 				return
 			}
 
-			common.RespondJSON(w, 200, map[string]string{"accessToken": jwtTokens.AccessTokenSigned, "refreshToken": jwtTokens.RefreshTokenSigned})
+			common.RespondJSON(w, 200, map[string]string{"accessToken": jwtTokens.AccessTokenSigned, "refreshToken": jwtTokens.RefreshTokenSigned, "message": "successful"})
 			return
 		}
 		break
@@ -119,7 +98,7 @@ func CreateAccount(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			common.RespondError(w, 400, err.Error())
 		} else {
-			common.RespondError(w, 400, "")
+			common.RespondError(w, 400, "Some internal error occurred")
 		}
 		return
 	}
@@ -127,7 +106,7 @@ func CreateAccount(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	result, err := db.Query("select * from Users where accountName=? or emailId=?", neededParams["Accountname"], neededParams["Emailid"])
 
 	if err != nil {
-		fmt.Println("CreateAccount Select query error: ", err)
+		// fmt.Println("CreateAccount Select query error: ", err)
 		common.RespondError(w, 500, "Some internal error occurred CASEQRY")
 		return
 	}
@@ -142,10 +121,33 @@ func CreateAccount(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	_, err = db.Exec("INSERT INTO Users (accountName, emailId, passwordHash) VALUES (?, ?, ?)", neededParams["Accountname"], neededParams["Emailid"], hashedPassword)
 
 	if err != nil {
-		fmt.Println("CreateAccount insert exec error: ", err)
+		// fmt.Println("CreateAccount insert exec error: ", err)
 		common.RespondError(w, 500, "Some internal error occurred CAISEXEC")
 		return
 	}
 
-	common.RespondJSON(w, 200, map[string]string{"successful": "ok"})
+	common.RespondJSON(w, 200, map[string]string{"message": "successful"})
+}
+
+func TestJwtAccessToken(w http.ResponseWriter, r *http.Request) {
+	accessToken := r.Header["Accesstoken"]
+	if len(accessToken) != 1 {
+		common.RespondJSON(w, 200, map[string]string{"valid": "false"})
+		return 
+	}
+	_, valid, err := session.VerifyAccessToken(accessToken[0])
+
+	if err != nil {
+		if strings.Contains(err.Error(), "expired"){
+			common.RespondJSON(w, 200, map[string]string{"valid": "expired"})	
+			return
+		}
+		common.RespondJSON(w, 401, map[string]string{"valid": "false"})
+		return
+	}
+	if valid {
+		common.RespondJSON(w, 200, map[string]string{"valid": "true"})
+		return
+	}
+	common.RespondJSON(w, 401, map[string]string{"valid": "false"})
 }

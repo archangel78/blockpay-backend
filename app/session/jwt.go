@@ -3,6 +3,7 @@ package session
 import (
 	"errors"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt"
@@ -77,29 +78,31 @@ func GenerateTokenPair(accountName string, emailId string) (*JwtTokens, error) {
 
 func RenewAccessToken(signedAccessToken string, signedRefreshToken string) (*JwtTokens, error) {
 	atClaims := &AccessTokenClaims{}
-	atToken, err := jwt.ParseWithClaims(signedAccessToken, atClaims, func(t *jwt.Token) (interface{}, error) {
-		return os.Getenv("JWT_ACCESS_TOKEN_SECRET_KEY"), nil
+	_, err := jwt.ParseWithClaims(signedAccessToken, atClaims, func(t *jwt.Token) (interface{}, error) {
+		return []byte(os.Getenv("JWT_ACCESS_TOKEN_SECRET_KEY")), nil
 	})
 
 	if err != nil {
-		return nil, err
+		if !strings.Contains(err.Error(), "expired"){
+			return nil, err
+		}
 	}
 
 	rtClaims := &RefreshTokenClaims{}
 	rtToken, err := jwt.ParseWithClaims(signedRefreshToken, rtClaims, func(t *jwt.Token) (interface{}, error) {
-		return os.Getenv("JWT_REFRESH_TOKEN_SECRET_KEY"), nil
+		return []byte(os.Getenv("JWT_REFRESH_TOKEN_SECRET_KEY")), nil
 	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	if !atToken.Valid || !rtToken.Valid {
-		return nil, errors.New("Invalid token sent")
+	if !rtToken.Valid {
+		return nil, errors.New("Invalid refresh token")
 	}
 
 	if atClaims.AccountName != rtClaims.AccountName || atClaims.EmailId != rtClaims.Emailid {
-		return nil, errors.New("Invalid token sent")
+		return nil, errors.New("Different claims in refresh token and access token")
 	}
 
 	if time.Unix(atClaims.ExpiresAt, 0).Sub(time.Now()) > 30*time.Second {
@@ -110,7 +113,7 @@ func RenewAccessToken(signedAccessToken string, signedRefreshToken string) (*Jwt
 	atClaims.StandardClaims.ExpiresAt = newAtExpirationTime.Unix()
 	
 	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, atClaims)
-	newSignedAccessToken, err := accessToken.SignedString(os.Getenv("JWT_ACCESS_TOKEN_SECRET_KEY"))
+	newSignedAccessToken, err := accessToken.SignedString([]byte(os.Getenv("JWT_ACCESS_TOKEN_SECRET_KEY")))
 
 	return &JwtTokens{AccessTokenSigned: newSignedAccessToken}, nil
 }

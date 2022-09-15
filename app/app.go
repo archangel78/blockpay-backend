@@ -37,8 +37,10 @@ func (app App) Initialize(dbConfig *config.DbConfig) {
 func (app App) SetRoutes() {
 	app.Post("/create_account", app.handleRequest(handler.CreateAccount))
 	app.Post("/login", app.handleRequest(handler.Login))
-	app.Get("/test_jwt", handler.TestJwtAccessToken)
 	app.Get("/renew_token", handler.RenewToken)
+
+	// Temporary endpoint for testing jwt
+	app.Get("/test_jwt", handler.TestJwtAccessToken)
 }	
 
 func (app App) Get(path string, handler http.HandlerFunc) {
