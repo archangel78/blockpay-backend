@@ -10,6 +10,7 @@ import (
 
 	"github.com/archangel78/blockpay-backend/app/common"
 	"github.com/archangel78/blockpay-backend/app/handler"
+	"github.com/archangel78/blockpay-backend/app/session"
 	config "github.com/archangel78/blockpay-backend/mysql-config"
 )
 
@@ -59,8 +60,28 @@ func (app App) Delete(path string, handler func(w http.ResponseWriter, r *http.R
 	app.Router.HandleFunc(path, handler).Methods("DELETE")
 }
 
-func (a App) handleRequest (handler func (db *sql.DB, w http.ResponseWriter, r *http.Request)) http.HandlerFunc{
+func (app App) handleAuthenticatedRequest (handler func (db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload)) http.HandlerFunc{
 	return func (w http.ResponseWriter, r *http.Request) {
-		handler(a.db, w, r)
+		accessToken := r.Header["Accesstoken"]
+		if len(accessToken) != 1 {
+			common.RespondJSON(w, 401, map[string]string{"message": "Invalid Access Token"})
+			return 
+		}	
+		payload, valid, err := session.VerifyAccessToken(accessToken[0])
+		if err != nil {
+			common.RespondJSON(w, 401, map[string]string{"message": "Invalid Access Token"})
+			return
+		}
+		if !valid {
+			common.RespondJSON(w, 401, map[string]string{"message": "Invalid Access Token"})
+			return
+		}
+		handler(app.db, w, r, *payload)
+	}
+}
+
+func (app App) handleRequest (handler func (db *sql.DB, w http.ResponseWriter, r *http.Request)) http.HandlerFunc{
+	return func (w http.ResponseWriter, r *http.Request) {
+		handler(app.db, w, r)
 	}
 }
