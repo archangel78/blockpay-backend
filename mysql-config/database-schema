@@ -1,9 +1,11 @@
 CREATE database blockpay_backend;
 USE blockpay_backend;
 CREATE TABLE if not exists Users (
+    countryCode varchar(4) NOT NULL,
+    phoneNumber varchar(255) NOT NULL,
     accountName varchar(255) NOT NULL,
     emailId varchar(255) NOT NULL,
     passwordHash varchar(255) NOT NULL,
     PRIMARY KEY (accountName),
-    UNIQUE (emailId, accountName)
+    UNIQUE (emailId, accountName, phoneNumber)
 );

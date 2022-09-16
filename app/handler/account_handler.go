@@ -2,6 +2,7 @@ package handler
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -14,6 +15,8 @@ import (
 type AccountDetails struct {
 	AccountName string	`json:"accountName"`
 	EmailId string		`json:"emailId"`
+	PhonenNo string 	`json:"phoneNo"`
+	CountryCode string	`json:"countryCode"`
 	PasswordHash string	`json:"passwordHash"`
 }
 
@@ -44,6 +47,7 @@ func Login(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	var err error
 	aName, aNameLogin := headers["Accountname"]
 	emailId, emailLogin := headers["Emailid"]
+	phoneNo, phoneLogin := headers["Phoneno"]
 
 	if aNameLogin {
 		result, err = db.Query("select * from Users where accountName=?", aName[0])
@@ -59,6 +63,13 @@ func Login(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 			common.RespondError(w, 400, "Some internal error occurred LISEEID")
 			return
 		}
+	} else if phoneLogin {
+		result, err = db.Query("select * from Users where phoneNumber=?", string(phoneNo[0]))
+
+		if err != nil {
+			common.RespondError(w, 400, "Some internal error occurred LISEPNO")
+			return
+		}	
 	} else {
 		common.RespondError(w, 400, "Emailid or Accountname heaader does not exist")
 		return
@@ -66,17 +77,16 @@ func Login(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 
 	for result.Next() {
 		var accountDetails AccountDetails
-		err = result.Scan(&accountDetails.AccountName, &accountDetails.EmailId, &accountDetails.PasswordHash)
+		err = result.Scan(&accountDetails.CountryCode, &accountDetails.PhonenNo, &accountDetails.AccountName, &accountDetails.EmailId, &accountDetails.PasswordHash)
 
 		if err != nil {
+			fmt.Println(err)
 			common.RespondError(w, 400, "Some internal error occurred LIANSC")
 			return
 		}
-
 		err = bcrypt.CompareHashAndPassword([]byte(accountDetails.PasswordHash), []byte(password[0]))
 		if err == nil {
 			jwtTokens, err := session.GenerateTokenPair(accountDetails.AccountName, accountDetails.EmailId)
-
 			if err != nil {
 				common.RespondError(w, 401, "Unauthorized")
 				return
@@ -92,36 +102,30 @@ func Login(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 
 func CreateAccount(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	headers := r.Header
-	expectedParams := []string{"Emailid", "Accountname", "Password"}
-	valid, err, neededParams := common.VerifyHeaders(expectedParams, headers)
-	if !valid {
-		if err != nil {
-			common.RespondError(w, 400, err.Error())
-		} else {
-			common.RespondError(w, 400, "Some internal error occurred")
-		}
+	expectedParams := []string{"Emailid", "Accountname", "Password", "Phoneno", "Countrycode"}
+	err, neededParams := common.VerifyHeaders(expectedParams, headers)
+	if err != nil {
+		common.RespondError(w, 400, err.Error())
 		return
-	}
+	} 
 
-	result, err := db.Query("select * from Users where accountName=? or emailId=?", neededParams["Accountname"], neededParams["Emailid"])
+	result, err := db.Query("select * from Users where accountName=? or emailId=? or phoneNumber=?", neededParams["Accountname"], neededParams["Emailid"], neededParams["Phoneno"])
 
 	if err != nil {
-		// fmt.Println("CreateAccount Select query error: ", err)
 		common.RespondError(w, 500, "Some internal error occurred CASEQRY")
 		return
 	}
 
 	for result.Next() {
-		common.RespondError(w, 409, "AccountName Or email id already exists")
+		common.RespondError(w, 409, "AccountName Or email id or Phone number already exists")
 		return
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(neededParams["Password"]), bcrypt.DefaultCost)
 
-	_, err = db.Exec("INSERT INTO Users (accountName, emailId, passwordHash) VALUES (?, ?, ?)", neededParams["Accountname"], neededParams["Emailid"], hashedPassword)
+	_, err = db.Exec("INSERT INTO Users (accountName, emailId, passwordHash, phoneNumber, countryCode) VALUES (?, ?, ?, ?, ?)", neededParams["Accountname"], neededParams["Emailid"], hashedPassword, neededParams["Phoneno"], neededParams["Countrycode"])
 
 	if err != nil {
-		// fmt.Println("CreateAccount insert exec error: ", err)
 		common.RespondError(w, 500, "Some internal error occurred CAISEXEC")
 		return
 	}
