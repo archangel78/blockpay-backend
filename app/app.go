@@ -38,7 +38,8 @@ func (app App) Initialize(dbConfig *config.DbConfig) {
 func (app App) SetRoutes() {
 	app.Post("/create_account", app.handleRequest(handler.CreateAccount))
 	app.Post("/login", app.handleRequest(handler.Login))
-	app.Get("/renew_token", handler.RenewToken)
+	app.Post("/renew_token", handler.RenewToken)
+	app.Post("/create_wallet", app.handleAuthenticatedRequest(handler.CreateWallet))
 
 	// Temporary endpoint for testing jwt
 	app.Get("/test_jwt", handler.TestJwtAccessToken)
@@ -62,12 +63,13 @@ func (app App) Delete(path string, handler func(w http.ResponseWriter, r *http.R
 
 func (app App) handleAuthenticatedRequest (handler func (db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload)) http.HandlerFunc{
 	return func (w http.ResponseWriter, r *http.Request) {
-		accessToken := r.Header["Accesstoken"]
-		if len(accessToken) != 1 {
-			common.RespondJSON(w, 401, map[string]string{"message": "Invalid Access Token"})
-			return 
-		}	
-		payload, valid, err := session.VerifyAccessToken(accessToken[0])
+		headers, err := common.VerifyHeaders([]string{"Accesstoken"}, r.Header)
+		if err != nil {
+			common.RespondError(w, 400, err.Error())
+			return
+		} 	
+
+		payload, valid, err := session.VerifyAccessToken(headers["Accesstoken"])
 		if err != nil {
 			common.RespondJSON(w, 401, map[string]string{"message": "Invalid Access Token"})
 			return

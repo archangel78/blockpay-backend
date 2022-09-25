@@ -24,10 +24,19 @@ func RenewToken(w http.ResponseWriter, r *http.Request) {
 	accessToken := r.Header["Accesstoken"]
 	refreshToken := r.Header["Refreshtoken"]
 
+	if len(accessToken) != 1 || len(refreshToken) != 1 {
+		common.RespondJSON(w, 401, map[string]string{"message": "accessToken and refreshToken should be send"})
+		return
+	}
+
 	token, err := session.RenewAccessToken(accessToken[0], refreshToken[0])
 
 	if err != nil {
-		common.RespondJSON(w, 401, map[string]string{"message": "Invalid tokens"})
+		if strings.Contains(err.Error(), "early") {
+			common.RespondJSON(w, 401, map[string]string{"message": err.Error()})
+		} else {
+			common.RespondJSON(w, 401, map[string]string{"message": "Invalid tokens"})
+		}
 		return
 	}
 	
@@ -103,7 +112,7 @@ func Login(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 func CreateAccount(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	headers := r.Header
 	expectedParams := []string{"Emailid", "Accountname", "Password", "Phoneno", "Countrycode"}
-	err, neededParams := common.VerifyHeaders(expectedParams, headers)
+	neededParams, err := common.VerifyHeaders(expectedParams, headers)
 	if err != nil {
 		common.RespondError(w, 400, err.Error())
 		return

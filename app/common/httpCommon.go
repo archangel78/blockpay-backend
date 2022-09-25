@@ -20,17 +20,17 @@ func VerifyUrlParams (expectedParams []string, urlParams url.Values) (bool, erro
 	return true, nil, output
 }
 
-func VerifyHeaders (expectedHeaders []string, headers http.Header) (error, map[string]string) {
+func VerifyHeaders (expectedHeaders []string, headers http.Header) (map[string]string, error) {
 	output := make(map[string]string)
 	for _, header := range expectedHeaders {
 		value, exists := headers[header]
 		if !exists{
 			error := errors.New(header+" header does not exist")
-			return error, nil
+			return nil, error
 		}
 		output[header] = value[0]
 	}
-	return nil, output
+	return output, nil
 }
 
 // func VerifyOptionalHeaders (optionalHeaders []string, headers http.Header) (error)
