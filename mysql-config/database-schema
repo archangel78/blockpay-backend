@@ -9,3 +9,9 @@ CREATE TABLE if not exists Users (
     PRIMARY KEY (accountName),
     UNIQUE (emailId, accountName, phoneNumber)
 );
+CREATE TABLE if not exists Wallet (
+    accountName varchar(255) NOT NULL,
+    wallet      varchar(255) NOT NULL,
+    PRIMARY KEY (wallet),
+    FOREIGN KEY (accountName) REFERENCES Users (accountName)
+);

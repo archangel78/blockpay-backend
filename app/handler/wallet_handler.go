@@ -20,6 +20,18 @@ type WalletCreateResponse struct {
 }
 
 func CreateWallet(db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload) {
+	result, err := db.Query("select * from Wallet where accountName=?", payload.AccountName)
+
+	if err != nil {
+		common.RespondError(w, 500, "Some internal error occurred CWSEQRY")
+		return
+	}
+
+	for result.Next() {
+		common.RespondError(w, 409, "Wallet already exists for this account")
+		return
+	}
+
 	// create a RPC client
 	c := client.NewClient(rpc.MainnetRPCEndpoint)
 
@@ -35,6 +47,13 @@ func CreateWallet(db *sql.DB, w http.ResponseWriter, r *http.Request, payload se
 		PublicKey: wallet.PublicKey.ToBase58(),
 		PrivateKey: base58.Encode(wallet.PrivateKey),
 		SolanaVersion: version.SolanaCore,
+	}
+
+	_, err = db.Exec("INSERT INTO Wallet (accountName, wallet) VALUES (?, ?)", payload.AccountName, wallet.PublicKey.ToBase58())
+
+	if err != nil {
+		common.RespondError(w, 500, "Some internal error occurred ")
+		return
 	}
 	common.RespondJSON(w, 200, response)
 }
