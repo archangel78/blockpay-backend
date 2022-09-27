@@ -15,3 +15,9 @@ CREATE TABLE if not exists Wallet (
     PRIMARY KEY (wallet),
     FOREIGN KEY (accountName) REFERENCES Users (accountName)
 );
+CREATE TABLE if not exists Transactions (
+    transactionId varchar(255) NOT NULL,
+    fromAccount varchar(255) NOT NULL,
+    toAccount varchar(255) NOT NULL,
+    ts TIMESTAMP Default CURRENT_TIMESTAMP
+);

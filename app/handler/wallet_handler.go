@@ -19,6 +19,45 @@ type WalletCreateResponse struct {
 	SolanaVersion string `json:"Version"`
 }
 
+type Transaction struct {
+	TransactionId string `json:"transactionId"`
+	FromAccount   string `json:"fromAccount"`
+	ToAccount     string `json:"toAccount"`
+	TimeStamp     string `json:"ts"`
+}
+
+type TransactionResponse struct {
+	Transactions []Transaction `json:"transactions"`
+}
+
+func CreateTransaction(db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload) {
+
+}
+
+func GetTransactionHistory(db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload) {
+	result, err := db.Query("select * from Transactions where fromAccount=?", payload.AccountName)
+
+	if err != nil {
+		common.RespondError(w, 400, "Some internal error occurred GTHSEQ")
+		return
+	}
+
+	transactionHistory := []Transaction{}
+
+	for result.Next() {
+		var newTransaction Transaction
+		err = result.Scan(&newTransaction.TransactionId, &newTransaction.FromAccount, &newTransaction.ToAccount, &newTransaction.TransactionId)
+		transactionHistory = append(transactionHistory, newTransaction)
+
+		if err != nil {
+			common.RespondError(w, 400, "Some internal error occurred GTHTHARN")
+			return
+		}
+	}
+	common.RespondJSON(w, 200, TransactionResponse{Transactions: transactionHistory})
+	return
+}
+
 func CreateWallet(db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload) {
 	result, err := db.Query("select * from Wallet where accountName=?", payload.AccountName)
 
@@ -44,8 +83,8 @@ func CreateWallet(db *sql.DB, w http.ResponseWriter, r *http.Request, payload se
 
 	wallet := types.NewAccount()
 	response := WalletCreateResponse{
-		PublicKey: wallet.PublicKey.ToBase58(),
-		PrivateKey: base58.Encode(wallet.PrivateKey),
+		PublicKey:     wallet.PublicKey.ToBase58(),
+		PrivateKey:    base58.Encode(wallet.PrivateKey),
 		SolanaVersion: version.SolanaCore,
 	}
 
