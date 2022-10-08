@@ -11,8 +11,10 @@ CREATE TABLE if not exists Users (
 );
 CREATE TABLE if not exists Wallet (
     accountName varchar(255) NOT NULL,
-    wallet      varchar(255) NOT NULL,
-    PRIMARY KEY (wallet),
+    walletPubKey varchar(255) NOT NULL,
+    walletPrivKey varchar(255) NOT NULL,
+    walletPrivId varchar(255) NOT NULL,
+    PRIMARY KEY (walletPubKey),
     FOREIGN KEY (accountName) REFERENCES Users (accountName)
 );
 CREATE TABLE if not exists Transactions (

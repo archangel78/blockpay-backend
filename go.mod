@@ -13,6 +13,8 @@ require (
 	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
 )
 
+require github.com/rs/cors v1.8.2 // indirect
+
 require (
 	filippo.io/edwards25519 v1.0.0-rc.1 // indirect
 	github.com/btcsuite/btcutil v1.0.2

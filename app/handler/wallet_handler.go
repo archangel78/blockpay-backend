@@ -2,7 +2,12 @@ package handler
 
 import (
 	"context"
+	"crypto/md5"
 	"database/sql"
+	"encoding/binary"
+	"fmt"
+	"io"
+	"math/rand"
 	"net/http"
 
 	"github.com/archangel78/blockpay-backend/app/common"
@@ -15,7 +20,7 @@ import (
 
 type WalletCreateResponse struct {
 	PublicKey     string `json:"Publickey"`
-	PrivateKey    string `json:"Privatekey"`
+	PrivateId    string `json:"PrivateId"`
 	SolanaVersion string `json:"Version"`
 }
 
@@ -31,7 +36,23 @@ type TransactionResponse struct {
 }
 
 func CreateTransaction(db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload) {
-
+	headers, err := common.VerifyHeaders([]string{"Transactionkey", "Iv"}, r.Header)
+	if err != nil {
+		common.RespondError(w, 400, err.Error())
+		return
+	}
+	valid, err := common.VerifyTransactionKey(db, payload.AccountName, headers["Transactionkey"], headers["Iv"])
+	if err != nil {
+		common.RespondError(w, 400, "Invalid transaction key")
+		return
+	}
+	fmt.Println(valid)
+	successful, err := common.SendSol(db, payload, headers["Transactionkey"])
+	if !successful {
+		fmt.Println(err)
+		common.RespondError(w, 500, "Some internal error occurred")
+		return
+	}
 }
 
 func GetTransactionHistory(db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload) {
@@ -77,22 +98,39 @@ func CreateWallet(db *sql.DB, w http.ResponseWriter, r *http.Request, payload se
 	// get the current running Solana version
 	version, err := c.GetVersion(context.TODO())
 	if err != nil {
+		fmt.Println(err)
 		common.RespondError(w, 500, "Some internal error occurred CNMNET")
 		return
 	}
-
 	wallet := types.NewAccount()
+
+	hash := md5.New()
+	io.WriteString(hash, base58.Encode(wallet.PrivateKey))
+	var md5HashSeed uint64 = binary.BigEndian.Uint64(hash.Sum(nil))
+	var walletPrivId string = GenerateRandomPrivId(32, md5HashSeed)
+
 	response := WalletCreateResponse{
 		PublicKey:     wallet.PublicKey.ToBase58(),
-		PrivateKey:    base58.Encode(wallet.PrivateKey),
+		PrivateId:     walletPrivId,
 		SolanaVersion: version.SolanaCore,
 	}
 
-	_, err = db.Exec("INSERT INTO Wallet (accountName, wallet) VALUES (?, ?)", payload.AccountName, wallet.PublicKey.ToBase58())
+	_, err = db.Exec("INSERT INTO Wallet (accountName, walletPubKey, walletPrivKey, walletPrivId) VALUES (?, ?, ?, ?)", payload.AccountName, wallet.PublicKey.ToBase58(), base58.Encode(wallet.PrivateKey), walletPrivId)
 
 	if err != nil {
+		fmt.Println(err)
 		common.RespondError(w, 500, "Some internal error occurred ")
 		return
 	}
 	common.RespondJSON(w, 200, response)
+}
+
+func GenerateRandomPrivId(length int, seed uint64) string {
+	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	rand.Seed(int64(seed))
+	b := make([]rune, length)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
 }

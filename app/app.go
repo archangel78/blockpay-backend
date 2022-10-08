@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 
 	"github.com/archangel78/blockpay-backend/app/common"
 	"github.com/archangel78/blockpay-backend/app/handler"
@@ -32,7 +33,17 @@ func (app App) Initialize(dbConfig *config.DbConfig) {
 	app.db = db
 
 	app.SetRoutes()
-	log.Fatal(http.ListenAndServe(":8080", app.Router))
+	cors := cors.New(cors.Options{
+        AllowedOrigins: []string{"*"},
+        AllowedMethods: []string{
+            http.MethodPost,
+            http.MethodGet,
+        },
+        AllowedHeaders:   []string{"*"},
+        AllowCredentials: false,
+    })
+
+	log.Fatal(http.ListenAndServe(":8080", cors.Handler(app.Router)))
 }
 
 func (app App) SetRoutes() {
@@ -41,6 +52,7 @@ func (app App) SetRoutes() {
 	app.Post("/renew_token", handler.RenewToken)
 	app.Post("/create_wallet", app.handleAuthenticatedRequest(handler.CreateWallet))
 	app.Get("/get_transaction_history", app.handleAuthenticatedRequest(handler.GetTransactionHistory))
+	app.Post("/create_transaction", app.handleAuthenticatedRequest(handler.CreateTransaction))
 
 	// Temporary endpoint for testing jwt
 	app.Get("/test_jwt", handler.TestJwtAccessToken)
