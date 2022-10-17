@@ -53,8 +53,6 @@ func (app App) SetRoutes() {
 	app.Post("/create_wallet", app.handleAuthenticatedRequest(handler.CreateWallet))
 	app.Get("/get_transaction_history", app.handleAuthenticatedRequest(handler.GetTransactionHistory))
 	app.Post("/create_transaction", app.handleAuthenticatedRequest(handler.CreateTransaction))
-
-	// Temporary endpoint for testing jwt
 	app.Get("/test_jwt", handler.TestJwtAccessToken)
 }	
 

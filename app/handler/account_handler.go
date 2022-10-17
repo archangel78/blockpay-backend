@@ -25,7 +25,7 @@ func RenewToken(w http.ResponseWriter, r *http.Request) {
 	refreshToken := r.Header["Refreshtoken"]
 
 	if len(accessToken) != 1 || len(refreshToken) != 1 {
-		common.RespondJSON(w, 401, map[string]string{"message": "accessToken and refreshToken should be send"})
+		common.RespondJSON(w, 401, map[string]string{"message": "accessToken and refreshToken should be sent"})
 		return
 	}
 
@@ -45,6 +45,7 @@ func RenewToken(w http.ResponseWriter, r *http.Request) {
 
 func Login(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	headers := r.Header
+	print(r.Header)
 	password, passwordExists := headers["Password"]
 	
 	if !passwordExists {
@@ -111,8 +112,10 @@ func Login(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 
 func CreateAccount(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	headers := r.Header
+	fmt.Println(r.Header, "ca")
 	expectedParams := []string{"Emailid", "Accountname", "Password", "Phoneno", "Countrycode"}
 	neededParams, err := common.VerifyHeaders(expectedParams, headers)
+	fmt.Println(neededParams["Emailid"]);
 	if err != nil {
 		common.RespondError(w, 400, err.Error())
 		return
@@ -144,15 +147,16 @@ func CreateAccount(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 
 func TestJwtAccessToken(w http.ResponseWriter, r *http.Request) {
 	accessToken := r.Header["Accesstoken"]
+	print(accessToken,"test");
 	if len(accessToken) != 1 {
 		common.RespondJSON(w, 200, map[string]string{"valid": "false"})
 		return 
 	}
 	_, valid, err := session.VerifyAccessToken(accessToken[0])
-
+	print(valid, err);
 	if err != nil {
 		if strings.Contains(err.Error(), "expired"){
-			common.RespondJSON(w, 200, map[string]string{"valid": "expired"})	
+			common.RespondJSON(w, 200, map[string]string{"valid": "false", "message": "expired"})	
 			return
 		}
 		common.RespondJSON(w, 401, map[string]string{"valid": "false"})

@@ -23,7 +23,7 @@ type WalletDetails struct {
 type TransactionDetails struct {
 	FromAccount string `json:"fromAccount"`
 	ToAccount   string `json:"toAccount"`
-	Amount      string `json:"amount"`
+	Amount      string `json:"amount"` 
 	Prover      string `json:"prover"`
 	ExpiryTime  string `json:"expiryTime"`
 }

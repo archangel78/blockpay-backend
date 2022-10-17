@@ -105,7 +105,7 @@ func RenewAccessToken(signedAccessToken string, signedRefreshToken string) (*Jwt
 		return nil, errors.New("Different claims in refresh token and access token")
 	}
 
-	if time.Unix(atClaims.ExpiresAt, 0).Sub(time.Now()) > 30*time.Second {
+	if time.Unix(atClaims.ExpiresAt, 0).Sub(time.Now()) > 180*time.Second {
 		return nil, errors.New("Too early to renew")
 	}
 
