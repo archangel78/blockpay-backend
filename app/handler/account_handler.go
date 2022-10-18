@@ -147,16 +147,14 @@ func CreateAccount(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 
 func TestJwtAccessToken(w http.ResponseWriter, r *http.Request) {
 	accessToken := r.Header["Accesstoken"]
-	print(accessToken,"test");
 	if len(accessToken) != 1 {
 		common.RespondJSON(w, 200, map[string]string{"valid": "false"})
 		return 
 	}
 	_, valid, err := session.VerifyAccessToken(accessToken[0])
-	print(valid, err);
 	if err != nil {
 		if strings.Contains(err.Error(), "expired"){
-			common.RespondJSON(w, 200, map[string]string{"valid": "false", "message": "expired"})	
+			common.RespondJSON(w, 200, map[string]string{"valid": "expired", "message": "expired"})	
 			return
 		}
 		common.RespondJSON(w, 401, map[string]string{"valid": "false"})
