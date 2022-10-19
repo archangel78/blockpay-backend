@@ -20,7 +20,7 @@ import (
 
 type WalletCreateResponse struct {
 	PublicKey     string `json:"Publickey"`
-	PrivateId    string `json:"PrivateId"`
+	PrivateId     string `json:"PrivateId"`
 	SolanaVersion string `json:"Version"`
 }
 
@@ -29,6 +29,13 @@ type Transaction struct {
 	FromAccount   string `json:"fromAccount"`
 	ToAccount     string `json:"toAccount"`
 	TimeStamp     string `json:"ts"`
+}
+
+type Wallet struct {
+	AccountName   string `json:"accountName"`
+	WalletPubKey  string `json:"walletPubKey"`
+	WalletPrivKey string `json:"walletPrivKey"`
+	WalletPrivId  string `json:"walletPrivId"`
 }
 
 type TransactionResponse struct {
@@ -118,7 +125,7 @@ func CreateWallet(db *sql.DB, w http.ResponseWriter, r *http.Request, payload se
 	_, err = db.Exec("INSERT INTO Wallet (accountName, walletPubKey, walletPrivKey, walletPrivId) VALUES (?, ?, ?, ?)", payload.AccountName, wallet.PublicKey.ToBase58(), base58.Encode(wallet.PrivateKey), walletPrivId)
 
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err) 
 		common.RespondError(w, 500, "Some internal error occurred ")
 		return
 	}
@@ -133,4 +140,33 @@ func GenerateRandomPrivId(length int, seed uint64) string {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
 	return string(b)
+}
+
+func VerifyAmount(db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload) {
+	result, err := db.Query("select walletPubKey from Wallet where accountName=?", payload.AccountName)
+
+	if err != nil {
+		common.RespondError(w, 400, "Some internal error occurred VASEQRY")
+		return
+	}
+
+	for result.Next() {
+		var wallet Wallet
+		err = result.Scan(&wallet.WalletPubKey)
+
+		if err != nil {
+			fmt.Print(err)
+			common.RespondError(w, 500, "Some internal error occurred VASCN")
+			return
+		}
+		c := client.NewClient(rpc.MainnetRPCEndpoint)
+		balance, decimals, err := c.GetTokenAccountBalance(
+			context.Background(),
+			"4y6EMMzzW6mZxpM3VTD1jTehqAbeLNn6ZrWLvNeGApQJbpP8yLFYRfao3nRC6fnmnECf8vVSPkiMNn5ANSSQp9wM",
+		)
+		fmt.Println(balance, decimals, err)
+		common.RespondError(w, 500, "temp")
+		return
+	}
+	common.RespondError(w, 500, "invalid")
 }

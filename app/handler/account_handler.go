@@ -193,7 +193,7 @@ func CheckAccount(db *sql.DB, w http.ResponseWriter, r *http.Request, payload se
 			return
 		} else {
 			common.RespondError(w, 400, "Can't send money to yourself")
-			return
+			return	
 		}
 	}
 	common.RespondError(w, 400, "Username does not exist")
