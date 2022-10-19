@@ -171,6 +171,7 @@ func CheckAccount(db *sql.DB, w http.ResponseWriter, r *http.Request, payload se
 	reqHeaders, err := common.VerifyHeaders([]string{"username"}, r.Header)
 	if err != nil {
 		common.RespondError(w, 400, err.Error())
+		return
 	}
 	result, err := db.Query("select * from Users where accountName=?", reqHeaders["Accountname"])
 
