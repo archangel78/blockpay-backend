@@ -25,7 +25,7 @@ func VerifyHeaders (expectedHeaders []string, headers http.Header) (map[string]s
 	for _, header := range expectedHeaders {
 		value, exists := headers[header]
 		if !exists{
-			error := errors.New(header+" header does not exist1")
+			error := errors.New(header+" header does not exist")
 			return nil, error
 		}
 		output[header] = value[0]

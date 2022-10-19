@@ -168,22 +168,33 @@ func TestJwtAccessToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func CheckAccount(db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload) {
-	reqHeaders, err := common.VerifyHeaders([]string{"username"}, r.Header)
+	reqHeaders, err := common.VerifyHeaders([]string{"Username"}, r.Header)
 	if err != nil {
 		common.RespondError(w, 400, err.Error())
 		return
 	}
-	result, err := db.Query("select * from Users where accountName=?", reqHeaders["Accountname"])
+	result, err := db.Query("select * from Users where accountName=?", reqHeaders["Username"])
 
 	if err != nil {
 		common.RespondError(w, 500, "Some internal error occurred CACCSEQRY")
 		return
 	}
+
 	for result.Next() {
 		var accountDetails AccountDetails
-		err = result.Scan(&accountDetails.CountryCode, &accountDetails.PhonenNo, &accountDetails.AccountName, &accountDetails.EmailId)
-		common.RespondJSON(w, 200, map[string]string{"message": "successful", "emailid": accountDetails.EmailId, "username": accountDetails.AccountName})
-		return
+		err = result.Scan(&accountDetails.CountryCode, &accountDetails.PhonenNo, &accountDetails.AccountName, &accountDetails.EmailId, &accountDetails.PasswordHash)
+		if err != nil {
+			print(err.Error())
+			common.RespondError(w, 500, "Some internal error occurred CACCSCN")
+			return
+		}
+		if accountDetails.AccountName != payload.AccountName {
+			common.RespondJSON(w, 200, map[string]string{"message": "successful", "emailid": accountDetails.EmailId, "username": accountDetails.AccountName})
+			return
+		} else {
+			common.RespondError(w, 400, "Can't send money to yourself")
+			return
+		}
 	}
 	common.RespondError(w, 400, "Username does not exist")
 }
