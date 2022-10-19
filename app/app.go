@@ -47,13 +47,19 @@ func (app App) Initialize(dbConfig *config.DbConfig) {
 }
 
 func (app App) SetRoutes() {
+	// Handle Account Endpoints
 	app.Post("/create_account", app.handleRequest(handler.CreateAccount))
 	app.Post("/login", app.handleRequest(handler.Login))
+	app.Get("/check_account", app.handleAuthenticatedRequest(handler.CheckAccount))
+	
+	// Handle session endpoints
 	app.Post("/renew_token", handler.RenewToken)
+	app.Get("/test_jwt", handler.TestJwtAccessToken)
+
+	// Handle wallet endpoints
 	app.Post("/create_wallet", app.handleAuthenticatedRequest(handler.CreateWallet))
 	app.Get("/get_transaction_history", app.handleAuthenticatedRequest(handler.GetTransactionHistory))
 	app.Post("/create_transaction", app.handleAuthenticatedRequest(handler.CreateTransaction))
-	app.Get("/test_jwt", handler.TestJwtAccessToken)
 }	
 
 func (app App) Get(path string, handler http.HandlerFunc) {
