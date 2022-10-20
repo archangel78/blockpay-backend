@@ -9,6 +9,7 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
+	"strconv"
 
 	"github.com/archangel78/blockpay-backend/app/common"
 	"github.com/archangel78/blockpay-backend/app/session"
@@ -43,18 +44,23 @@ type TransactionResponse struct {
 }
 
 func CreateTransaction(db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload) {
-	headers, err := common.VerifyHeaders([]string{"Transactionkey", "Iv"}, r.Header)
+	headers, err := common.VerifyHeaders([]string{"Transactionkey", "Iv", "Fromaccount", "Toaccount", "Amount"}, r.Header)
 	if err != nil {
 		common.RespondError(w, 400, err.Error())
 		return
 	}
-	valid, err := common.VerifyTransactionKey(db, payload.AccountName, headers["Transactionkey"], headers["Iv"])
+	valid, transactionDetails, err := common.VerifyTransactionKey(db, payload.AccountName, headers["Toaccount"], headers["Amount"], headers["Transactionkey"], headers["Iv"])
 	if err != nil {
-		common.RespondError(w, 400, "Invalid transaction key")
+		common.RespondError(w, 400, err.Error())
 		return
 	}
-	fmt.Println(valid)
-	successful, err := common.SendSol(db, payload, headers["Transactionkey"])
+
+	if !valid {
+		common.RespondError(w, 400, "Some internal error occurred CTVTK")
+		return
+	}
+
+	successful, err := common.SendSol(db, payload, transactionDetails)
 	if !successful {
 		fmt.Println(err)
 		common.RespondError(w, 500, "Some internal error occurred")
@@ -125,7 +131,7 @@ func CreateWallet(db *sql.DB, w http.ResponseWriter, r *http.Request, payload se
 	_, err = db.Exec("INSERT INTO Wallet (accountName, walletPubKey, walletPrivKey, walletPrivId) VALUES (?, ?, ?, ?)", payload.AccountName, wallet.PublicKey.ToBase58(), base58.Encode(wallet.PrivateKey), walletPrivId)
 
 	if err != nil {
-		fmt.Println(err) 
+		fmt.Println(err)
 		common.RespondError(w, 500, "Some internal error occurred ")
 		return
 	}
@@ -143,6 +149,12 @@ func GenerateRandomPrivId(length int, seed uint64) string {
 }
 
 func VerifyAmount(db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload) {
+	verifyAmount, err := common.VerifyHeaders([]string{"Amount"}, r.Header)
+	if err != nil {
+		common.RespondError(w, 400, err.Error())
+		return
+	}
+
 	result, err := db.Query("select walletPubKey from Wallet where accountName=?", payload.AccountName)
 
 	if err != nil {
@@ -159,14 +171,34 @@ func VerifyAmount(db *sql.DB, w http.ResponseWriter, r *http.Request, payload se
 			common.RespondError(w, 500, "Some internal error occurred VASCN")
 			return
 		}
+
 		c := client.NewClient(rpc.MainnetRPCEndpoint)
-		balance, decimals, err := c.GetTokenAccountBalance(
+		balance, err := c.GetBalance(
 			context.Background(),
-			"4y6EMMzzW6mZxpM3VTD1jTehqAbeLNn6ZrWLvNeGApQJbpP8yLFYRfao3nRC6fnmnECf8vVSPkiMNn5ANSSQp9wM",
+			wallet.WalletPubKey,
 		)
-		fmt.Println(balance, decimals, err)
-		common.RespondError(w, 500, "temp")
-		return
+		if err != nil {
+			fmt.Print(err)
+			common.RespondError(w, 500, "Some internal error occurred VAGBLNC")
+			return
+		}
+		amountFloat, err := strconv.ParseFloat(verifyAmount["Amount"], 32)
+		if err != nil {
+			fmt.Print(err)
+			common.RespondError(w, 400, "Invalid amount sent")
+			return
+		}
+
+		lamportAmount := amountFloat / 0.000000001
+
+		if int(lamportAmount) <= int(balance) && int(lamportAmount) > 0 {
+			common.RespondJSON(w, 200, map[string]string{"message": "successful"})
+			return
+		} else {
+			solBalance := float32(balance) * 0.000000001
+			common.RespondJSON(w, 200, map[string]string{"message": "Amount greater than your balance: " + fmt.Sprint(solBalance)})
+			return
+		}
 	}
 	common.RespondError(w, 500, "invalid")
 }

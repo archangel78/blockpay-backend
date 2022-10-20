@@ -23,29 +23,41 @@ type WalletDetails struct {
 type TransactionDetails struct {
 	FromAccount string `json:"fromAccount"`
 	ToAccount   string `json:"toAccount"`
-	Amount      string `json:"amount"` 
+	Amount      string `json:"amount"`
 	Prover      string `json:"prover"`
 	ExpiryTime  string `json:"expiryTime"`
 }
 
-func VerifyTransactionKey(db *sql.DB, fromAccount string, transactionKey string, ivStr string) (bool, error) {
+func VerifyTransactionKey(db *sql.DB, fromAccount string, toAccount string, sendAmount string, transactionKey string, ivStr string) (bool, *TransactionDetails, error) {
 	result, err := db.Query("select walletPrivId from Wallet where accountName=?", string(fromAccount))
 	for result.Next() {
 		var walletDetails WalletDetails
 		err = result.Scan(&walletDetails.walletPrivId)
 		if err != nil {
 			fmt.Println(err)
-			return false, err
+			return false, nil, err
 		}
 		transactionDetails, err := decrypt([]byte(walletDetails.walletPrivId), transactionKey, ivStr)
 		if err != nil {
 			fmt.Println(err)
-			return false, err
+			return false, nil, err
 		}
-		fmt.Println(transactionDetails)
-		break
+
+		if fromAccount != transactionDetails.FromAccount {
+			return false, nil, errors.New("Invalid From Account")
+		}
+
+		if toAccount != transactionDetails.ToAccount {
+			return false, nil, errors.New("Invalid To Account")
+		}
+
+		if sendAmount != transactionDetails.Amount {
+			return false, nil, errors.New("Invalid transaction Amount")
+		}
+
+		return true, transactionDetails, nil
 	}
-	return true, nil
+	return false, nil, errors.New("Some unknown error")
 }
 
 func decrypt(key []byte, cryptoText string, ivStr string) (*TransactionDetails, error) {
@@ -67,7 +79,7 @@ func decrypt(key []byte, cryptoText string, ivStr string) (*TransactionDetails, 
 	fmt.Println(plaintext)
 
 	err = json.Unmarshal([]byte(strings.Replace(plaintext, "'", "\"", -1)), &transactionDetails)
-	
+
 	if err != nil {
 		fmt.Println(err)
 		return nil, errors.New("Invalid transactionKey")
@@ -75,19 +87,35 @@ func decrypt(key []byte, cryptoText string, ivStr string) (*TransactionDetails, 
 	return &transactionDetails, nil
 }
 
-func SendSol(db *sql.DB, payload session.Payload, toAccountName string) (bool, error) {
-	result, err := db.Query("select walletPubKey from Wallet where accountName=?", string(toAccountName))
+func SendSol(db *sql.DB, payload session.Payload, transactionDetails *TransactionDetails) (bool, error) {
+	result, err := db.Query("select walletPubKey from Wallet where accountName=?", transactionDetails.ToAccount)
+	if err != nil {
+		return false, err
+	}
 
 	for result.Next() {
-		var walletDetails WalletDetails
-		err = result.Scan(&walletDetails.walletPubKey)
-
+		var towalletDetails WalletDetails
+		err = result.Scan(&towalletDetails.walletPubKey)
 		if err != nil {
 			fmt.Println(err)
 			return false, err
 		}
-		fmt.Println(walletDetails)
-		break
+
+		privResult, err := db.Query("select walletPrivKey from Wallet where accountName=?", transactionDetails.FromAccount)
+		if err != nil {
+			return false, err
+		}
+
+		for privResult.Next() {
+			var fromWalletDetails WalletDetails
+			err = privResult.Scan(&fromWalletDetails.walletPrivKey)
+
+			if err != nil {
+				fmt.Println(err)
+				return false, err
+			}
+			
+		}
 	}
 	return true, nil
 }
