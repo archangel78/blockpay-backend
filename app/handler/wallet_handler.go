@@ -61,8 +61,12 @@ func CreateTransaction(db *sql.DB, w http.ResponseWriter, r *http.Request, paylo
 	}
 
 	successful, err := common.SendSol(db, payload, transactionDetails)
-	if !successful {
+	if err != nil {
 		fmt.Println(err)
+		common.RespondError(w, 500, "Some internal error occurred")
+		return
+	}
+	if !successful {
 		common.RespondError(w, 500, "Some internal error occurred")
 		return
 	}
@@ -171,8 +175,8 @@ func VerifyAmount(db *sql.DB, w http.ResponseWriter, r *http.Request, payload se
 			common.RespondError(w, 500, "Some internal error occurred VASCN")
 			return
 		}
-
-		c := client.NewClient(rpc.MainnetRPCEndpoint)
+		// TODO: change to mainnet after production
+		c := client.NewClient(rpc.DevnetRPCEndpoint)
 		balance, err := c.GetBalance(
 			context.Background(),
 			wallet.WalletPubKey,
