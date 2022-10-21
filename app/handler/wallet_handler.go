@@ -49,27 +49,36 @@ func CreateTransaction(db *sql.DB, w http.ResponseWriter, r *http.Request, paylo
 		common.RespondError(w, 400, err.Error())
 		return
 	}
-	valid, transactionDetails, err := common.VerifyTransactionKey(db, payload.AccountName, headers["Toaccount"], headers["Amount"], headers["Transactionkey"], headers["Iv"])
-	if err != nil {
-		common.RespondError(w, 400, err.Error())
-		return
-	}
+	// _, transactionDetails, err := common.VerifyTransactionKey(db, payload.AccountName, headers["Toaccount"], headers["Amount"], headers["Transactionkey"], headers["Iv"])
+	// if err != nil {
+	// 	common.RespondError(w, 400, err.Error())
+	// 	return
+	// }
 
-	if !valid {
-		common.RespondError(w, 400, "Some internal error occurred CTVTK")
-		return
-	}
-
-	successful, err := common.SendSol(db, payload, transactionDetails)
+	// Uncomment to skip transaction verification
+	lamportAmount, err := strconv.ParseFloat(headers["Amount"], 64)
 	if err != nil {
 		fmt.Println(err)
 		common.RespondError(w, 500, "Some internal error occurred")
 		return
 	}
-	if !successful {
+	transactionDetails := &common.TransactionDetails{FromAccount: headers["Fromaccount"], ToAccount: headers["Toaccount"], LamportAmount: lamportAmount}
+
+	_, signature, err := common.SendSol(db, payload, transactionDetails)
+	if err != nil {
+		fmt.Println(err)
 		common.RespondError(w, 500, "Some internal error occurred")
 		return
 	}
+
+	err = common.WriteTransaction(db, signature, headers["Fromaccount"], headers["Toaccount"], "NA", headers["Toammount"])
+
+	if err != nil {
+		fmt.Println(err)
+		common.RespondError(w, 500, "Some internal error occurred")
+		return
+	}
+	common.RespondJSON(w, 200, map[string]string{"message": "successful"})
 }
 
 func GetTransactionHistory(db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload) {

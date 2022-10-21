@@ -2,13 +2,14 @@ package common
 
 import (
 	"database/sql"
+	"fmt"
 
 	config "github.com/archangel78/blockpay-backend/mysql-config"
 	_ "github.com/go-sql-driver/mysql"
 )
 
 func OpenDbConnection(dbConfig *config.DbConfig) (*sql.DB, error) {
-	conString := dbConfig.Username+":"+dbConfig.Password+"@tcp("+dbConfig.Hostname+":"+dbConfig.Port+")/"+dbConfig.DatabaseName
+	conString := dbConfig.Username + ":" + dbConfig.Password + "@tcp(" + dbConfig.Hostname + ":" + dbConfig.Port + ")/" + dbConfig.DatabaseName
 	db, err := sql.Open(dbConfig.Protocol, conString)
 
 	if err != nil {
@@ -25,4 +26,13 @@ func GetPreparedStatement(db *sql.DB, preparedString string) (*sql.Stmt, error) 
 	return stmt, err
 }
 
-func writeTransaction(db *sql.DB, )
+func WriteTransaction(db *sql.DB, transactionId string, fromAccount string, toAccount string, toWallet string, transactionAmount string) error {
+	_, err := db.Exec("INSERT INTO Transactions (transactionId, fromAccount, toAccount, toWallet, transactionAmount) VALUES (?, ?, ?, ?, ?)", transactionId, fromAccount, toAccount, toWallet, transactionAmount)
+
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	return nil
+}

@@ -100,22 +100,22 @@ func decrypt(key []byte, cryptoText string, ivStr string) (*TransactionDetails, 
 	return &transactionDetails, nil
 }
 
-func SendSol(db *sql.DB, payload session.Payload, transactionDetails *TransactionDetails) (bool, error) {
+func SendSol(db *sql.DB, payload session.Payload, transactionDetails *TransactionDetails) (bool, string, error) {
 	result, err := db.Query("select walletPubKey, walletPrivKey from Wallet where accountName=?", transactionDetails.ToAccount)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	for result.Next() {
 		var towalletDetails WalletDetails
 		err = result.Scan(&towalletDetails.walletPubKey, &towalletDetails.walletPrivKey)
 		if err != nil {
 			fmt.Println(err)
-			return false, err
+			return false, "", err
 		}
 
 		privResult, err := db.Query("select walletPrivKey from Wallet where accountName=?", transactionDetails.FromAccount)
 		if err != nil {
-			return false, err
+			return false, "", err
 		}
 
 		for privResult.Next() {
@@ -124,19 +124,19 @@ func SendSol(db *sql.DB, payload session.Payload, transactionDetails *Transactio
 
 			if err != nil {
 				fmt.Println(err)
-				return false, err
+				return false, "", err
 			}
 
 			importedFromWallet, err := types.AccountFromBase58(fromWalletDetails.walletPrivKey)
 			if err != nil {
 				fmt.Println(err)
-				return false, err
+				return false, "", err
 			}
 
 			importedToWallet, err := types.AccountFromBase58(towalletDetails.walletPrivKey)
 			if err != nil {
 				fmt.Println(err)
-				return false, err
+				return false, "", err
 			}
 
 			c := client.NewClient(rpc.DevnetRPCEndpoint)
@@ -158,15 +158,15 @@ func SendSol(db *sql.DB, payload session.Payload, transactionDetails *Transactio
 			})
 			if err != nil {
 				fmt.Println(err)
-				return false, err
+				return false, "", err
 			}
-			_, err = c.SendTransaction(context.Background(), tx)
+			sig, err := c.SendTransaction(context.Background(), tx)
 			if err != nil {
-				return false, err
+				return false, "", err
 			}
-			return true, nil
+			return true, sig, nil
 		}
-		return false, errors.New("first loop ended")
+		return false, "", errors.New("first loop ended")
 	}
-	return false, errors.New("didnt go into loop")
+	return false, "", errors.New("didnt go into loop")
 }
