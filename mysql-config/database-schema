@@ -20,6 +20,8 @@ CREATE TABLE if not exists Wallet (
 CREATE TABLE if not exists Transactions (
     transactionId varchar(255) NOT NULL,
     fromAccount varchar(255) NOT NULL,
-    toAccount varchar(255) NOT NULL,
+    toAccount varchar(255),
+    toWallet varchar(255),
+    transactionAmount varchar(255) NOT NULL,
     ts TIMESTAMP Default CURRENT_TIMESTAMP
 );

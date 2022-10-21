@@ -24,3 +24,5 @@ func GetPreparedStatement(db *sql.DB, preparedString string) (*sql.Stmt, error) 
 	}
 	return stmt, err
 }
+
+func writeTransaction(db *sql.DB, )
