@@ -50,6 +50,7 @@ func (app App) SetRoutes() {
 	// Handle Account Endpoints
 	app.Post("/create_account", app.handleRequest(handler.CreateAccount))
 	app.Post("/login", app.handleRequest(handler.Login))
+	app.Post("/pre_signup_verify", app.handleRequest(handler.PreSignUpVerify))
 	app.Get("/check_account", app.handleAuthenticatedRequest(handler.CheckAccount))
 	
 	// Handle session endpoints
@@ -57,7 +58,6 @@ func (app App) SetRoutes() {
 	app.Get("/test_jwt", handler.TestJwtAccessToken)
 
 	// Handle wallet endpoints
-	app.Post("/create_wallet", app.handleAuthenticatedRequest(handler.CreateWallet))
 	app.Get("/get_transaction_history", app.handleAuthenticatedRequest(handler.GetTransactionHistory))
 	app.Post("/create_transaction", app.handleAuthenticatedRequest(handler.CreateTransaction))
 	app.Get("/verify_send_amount", app.handleAuthenticatedRequest(handler.VerifyAmount))

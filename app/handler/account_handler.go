@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"net/mail"
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
@@ -79,8 +80,30 @@ func Login(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			common.RespondJSON(w, 200, map[string]string{"accessToken": jwtTokens.AccessTokenSigned, "refreshToken": jwtTokens.RefreshTokenSigned, "message": "successful"})
-			return
+			result2, err := db.Query("select walletPrivId, walletPubKey from Wallet where accountName=?", accountDetails.AccountName)
+			if err != nil {
+				fmt.Println(err)
+				common.RespondError(w, 500, "Some internal error occurred")
+				return
+			}
+			for result2.Next() {
+				var walletPrivId string
+				var walletPubKey string
+				err = result2.Scan(&walletPrivId, &walletPubKey)
+
+				if err != nil {
+					fmt.Println(err)
+					common.RespondError(w, 500, "Some internal error occurred")
+					return
+				}
+				common.RespondJSON(w, 200, map[string]string{"accessToken": jwtTokens.AccessTokenSigned, "refreshToken": jwtTokens.RefreshTokenSigned, "message": "successful", "walletPrivId": walletPrivId, "walletPubKey": walletPubKey, "accountName": accountDetails.AccountName})
+				return
+			}
+			if err != nil {
+				fmt.Println(err)
+				common.RespondError(w, 500, "Some internal error occurred")
+				return
+			}
 		}
 		break
 	}
@@ -89,10 +112,8 @@ func Login(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 
 func CreateAccount(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	headers := r.Header
-	fmt.Println(r.Header, "ca")
-	expectedParams := []string{"Emailid", "Accountname", "Password", "Phoneno", "Countrycode"}
+	expectedParams := []string{"Emailid", "Accountname", "Password", "Phoneno", "Countrycode", "Name"}
 	neededParams, err := common.VerifyHeaders(expectedParams, headers)
-	fmt.Println(neededParams["Emailid"])
 	if err != nil {
 		common.RespondError(w, 400, err.Error())
 		return
@@ -115,11 +136,29 @@ func CreateAccount(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	_, err = db.Exec("INSERT INTO Users (accountName, emailId, passwordHash, phoneNumber, countryCode) VALUES (?, ?, ?, ?, ?)", neededParams["Accountname"], neededParams["Emailid"], hashedPassword, neededParams["Phoneno"], neededParams["Countrycode"])
 
 	if err != nil {
-		common.RespondError(w, 500, "Some internal error occurred CAISEXEC")
+		common.RespondError(w, 500, "Some internal error occurred CAISUEXEC")
 		return
 	}
 
-	common.RespondJSON(w, 200, map[string]string{"message": "successful"})
+	_, err = db.Exec("INSERT INTO OtherDetails (accountName, fullName) VALUES (?, ?)", neededParams["Accountname"], neededParams["Name"])
+	if err != nil {
+		common.RespondError(w, 500, "Some internal error occurred CAISODEXEC")
+		return
+	}
+
+	walletRes, err := common.CreateWallet(db, neededParams["Accountname"])
+	if err != nil {
+		common.RespondError(w, 500, "Some internal eroor occurred CAWCRT")
+		return
+	}
+
+	jwtTokens, err := session.GenerateTokenPair(neededParams["Accountname"], neededParams["Emailid"])
+	if err != nil {
+		common.RespondError(w, 500, "Some internal error occurred CAJWTGEN")
+		return
+	}
+
+	common.RespondJSON(w, 200, map[string]string{"accessToken": jwtTokens.AccessTokenSigned, "refreshToken": jwtTokens.RefreshTokenSigned, "message": "successful", "walletPrivId": walletRes.PrivateId, "walletAddress": walletRes.PublicKey, "accountName": neededParams["Accountname"]})
 }
 
 func RenewToken(w http.ResponseWriter, r *http.Request) {
@@ -143,6 +182,59 @@ func RenewToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	common.RespondJSON(w, 401, map[string]string{"accessToken": token.AccessTokenSigned, "message": "successful"})
+}
+
+func PreSignUpVerify(db *sql.DB, w http.ResponseWriter, r *http.Request) {
+	headers := r.Header
+	expectedParams := []string{"Emailid", "Accountname", "Password"}
+	neededParams, err := common.VerifyHeaders(expectedParams, headers)
+	fmt.Println(neededParams["Emailid"])
+	if err != nil {
+		common.RespondError(w, 400, err.Error())
+		return
+	}
+
+	result, err := db.Query("select * from Users where accountName=?", neededParams["Accountname"])
+
+	if err != nil {
+		common.RespondError(w, 500, "Some internal error occurred PSVRFSEQRY")
+		return
+	}
+
+	for result.Next() {
+		common.RespondError(w, 409, "Username already exists")
+		return
+	}
+
+	result, err = db.Query("select * from Users where emailId=?", neededParams["Emailid"])
+
+	if err != nil {
+		common.RespondError(w, 500, "Some internal error occurred PSVRFSEQRY")
+		return
+	}
+
+	for result.Next() {
+		common.RespondError(w, 409, "Email Id is already in use")
+		return
+	}
+
+	_, err = mail.ParseAddress(neededParams["Emailid"])
+	if err != nil {
+		common.RespondError(w, 400, "Invalid Email Address")
+		return
+	}
+
+	if len(neededParams["Password"]) < 6 {
+		common.RespondError(w, 400, "Password should be atleast of length 6")
+		return
+	}
+
+	if len(neededParams["Password"]) > 15 {
+		common.RespondError(w, 400, "Password should be atmost of length 15")
+		return
+	}
+
+	common.RespondJSON(w, 200, map[string]string{"message": "successful"})
 }
 
 func TestJwtAccessToken(w http.ResponseWriter, r *http.Request) {
@@ -193,7 +285,7 @@ func CheckAccount(db *sql.DB, w http.ResponseWriter, r *http.Request, payload se
 			return
 		} else {
 			common.RespondError(w, 400, "Can't send money to yourself")
-			return	
+			return
 		}
 	}
 	common.RespondError(w, 400, "Username does not exist")

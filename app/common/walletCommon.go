@@ -4,15 +4,20 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/md5"
 	"database/sql"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"math/rand"
 	"strconv"
 	"strings"
 
 	"github.com/archangel78/blockpay-backend/app/session"
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/portto/solana-go-sdk/client"
 	"github.com/portto/solana-go-sdk/program/system"
 	"github.com/portto/solana-go-sdk/rpc"
@@ -26,6 +31,11 @@ type WalletDetails struct {
 	walletPrivId  string
 }
 
+type WalletCreateResponse struct {
+	PublicKey string `json:"Publickey"`
+	PrivateId string `json:"PrivateId"`
+}
+
 type TransactionDetails struct {
 	FromAccount   string  `json:"fromAccount"`
 	ToAccount     string  `json:"toAccount"`
@@ -35,11 +45,32 @@ type TransactionDetails struct {
 	ExpiryTime    string  `json:"expiryTime"`
 }
 
+func CreateWallet(db *sql.DB, accountName string) (*WalletCreateResponse, error) {
+	wallet := types.NewAccount()
+
+	hash := md5.New()
+	io.WriteString(hash, base58.Encode(wallet.PrivateKey))
+	var md5HashSeed uint64 = binary.BigEndian.Uint64(hash.Sum(nil))
+	var walletPrivId string = GenerateRandomPrivId(32, md5HashSeed)
+
+	_, err := db.Exec("INSERT INTO Wallet (accountName, walletPubKey, walletPrivKey, walletPrivId) VALUES (?, ?, ?, ?)", accountName, wallet.PublicKey.ToBase58(), base58.Encode(wallet.PrivateKey), walletPrivId)
+
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	response := WalletCreateResponse{
+		PublicKey: wallet.PublicKey.ToBase58(),
+		PrivateId: walletPrivId,
+	}
+	return &response, nil
+}
+
 func VerifyTransactionKey(db *sql.DB, fromAccount string, toAccount string, sendAmount string, transactionKey string, ivStr string) (bool, *TransactionDetails, error) {
-	result, err := db.Query("select walletPrivId from Wallet where accountName=?", string(fromAccount))
+	result, err := db.Query("select walletPrivId, walletPubKey from Wallet where accountName=?", string(fromAccount))
 	for result.Next() {
 		var walletDetails WalletDetails
-		err = result.Scan(&walletDetails.walletPrivId)
+		err = result.Scan(&walletDetails.walletPrivId, &walletDetails.walletPubKey)
 		if err != nil {
 			fmt.Println(err)
 			return false, nil, err
@@ -66,6 +97,25 @@ func VerifyTransactionKey(db *sql.DB, fromAccount string, toAccount string, send
 		if err != nil {
 			return false, nil, err
 		}
+
+		if transactionDetails.Prover != walletDetails.walletPrivId[:5] {
+			return false, nil, errors.New("Invalid prover")
+		}
+
+		c := client.NewClient(rpc.DevnetRPCEndpoint)
+		balance, err := c.GetBalance(
+			context.Background(),
+			walletDetails.walletPubKey,
+		)
+		if err != nil {
+			fmt.Print(err)
+			return false, nil, err
+		}
+
+		if lamportAmount >= float64(balance) {
+			return false, nil, errors.New("Amount greater than balance")
+		}
+
 		transactionDetails.LamportAmount = lamportAmount
 
 		return true, transactionDetails, nil
@@ -169,4 +219,14 @@ func SendSol(db *sql.DB, payload session.Payload, transactionDetails *Transactio
 		return false, "", errors.New("first loop ended")
 	}
 	return false, "", errors.New("didnt go into loop")
+}
+
+func GenerateRandomPrivId(length int, seed uint64) string {
+	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	rand.Seed(int64(seed))
+	b := make([]rune, length)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
 }
