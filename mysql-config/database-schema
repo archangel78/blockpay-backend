@@ -28,5 +28,7 @@ CREATE TABLE if not exists Transactions (
     toAccount varchar(255),
     toWallet varchar(255),
     transactionAmount varchar(255) NOT NULL,
+    toName varchar(255) NOT NULL,
+    fromName varchar(255) NOT NULL,
     ts TIMESTAMP Default CURRENT_TIMESTAMP
 );

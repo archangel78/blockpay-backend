@@ -23,7 +23,6 @@ type AccountDetails struct {
 
 func Login(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	headers := r.Header
-	print(r.Header)
 	password, passwordExists := headers["Password"]
 
 	if !passwordExists {
@@ -188,7 +187,6 @@ func PreSignUpVerify(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	headers := r.Header
 	expectedParams := []string{"Emailid", "Accountname", "Password"}
 	neededParams, err := common.VerifyHeaders(expectedParams, headers)
-	fmt.Println(neededParams["Emailid"])
 	if err != nil {
 		common.RespondError(w, 400, err.Error())
 		return

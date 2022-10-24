@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -41,9 +42,12 @@ type TransactionDetails struct {
 	ToAccount     string  `json:"toAccount"`
 	Amount        string  `json:"amount"`
 	LamportAmount float64 `json:"lamportAmount"`
+	LamportInt    int     `json:"lamportInt"`
 	Prover        string  `json:"prover"`
 	ExpiryTime    string  `json:"expiryTime"`
 }
+
+var nonAlphanumericRegex = regexp.MustCompile(`[^{}":0-9a-zA-Z,.]+`)
 
 func CreateWallet(db *sql.DB, accountName string) (*WalletCreateResponse, error) {
 	wallet := types.NewAccount()
@@ -93,11 +97,11 @@ func VerifyTransactionKey(db *sql.DB, fromAccount string, toAccount string, send
 			return false, nil, errors.New("Invalid transaction Amount")
 		}
 
-		lamportAmount, err := strconv.ParseFloat(transactionDetails.Amount, 32)
+		lamportAmount, err := strconv.ParseFloat(transactionDetails.Amount, 64)
 		if err != nil {
 			return false, nil, err
 		}
-
+		lamportAmount = lamportAmount / 0.000000001
 		if transactionDetails.Prover != walletDetails.walletPrivId[:5] {
 			return false, nil, errors.New("Invalid prover")
 		}
@@ -115,8 +119,8 @@ func VerifyTransactionKey(db *sql.DB, fromAccount string, toAccount string, send
 		if lamportAmount >= float64(balance) {
 			return false, nil, errors.New("Amount greater than balance")
 		}
-
 		transactionDetails.LamportAmount = lamportAmount
+		transactionDetails.LamportInt = int(lamportAmount)
 
 		return true, transactionDetails, nil
 	}
@@ -139,15 +143,18 @@ func decrypt(key []byte, cryptoText string, ivStr string) (*TransactionDetails, 
 	plaintext = strings.TrimSpace(plaintext)
 	plaintext = strings.Replace(plaintext, "\b", "", -1)
 	var transactionDetails TransactionDetails
-	fmt.Println(plaintext)
-
-	err = json.Unmarshal([]byte(strings.Replace(plaintext, "'", "\"", -1)), &transactionDetails)
+	err = json.Unmarshal([]byte(clearString(strings.Replace(plaintext, "'", "\"", -1))), &transactionDetails)
 
 	if err != nil {
 		fmt.Println(err)
 		return nil, errors.New("Invalid transactionKey")
 	}
 	return &transactionDetails, nil
+}
+
+func clearString(str string) string {
+	value := nonAlphanumericRegex.ReplaceAllString(str, "")
+	return value
 }
 
 func SendSol(db *sql.DB, payload session.Payload, transactionDetails *TransactionDetails) (bool, string, error) {
@@ -188,10 +195,8 @@ func SendSol(db *sql.DB, payload session.Payload, transactionDetails *Transactio
 				fmt.Println(err)
 				return false, "", err
 			}
-
 			c := client.NewClient(rpc.DevnetRPCEndpoint)
 			resp, err := c.GetLatestBlockhash(context.Background())
-
 			tx, err := types.NewTransaction(types.NewTransactionParam{
 				Message: types.NewMessage(types.NewMessageParam{
 					FeePayer:        importedFromWallet.PublicKey,
@@ -200,7 +205,7 @@ func SendSol(db *sql.DB, payload session.Payload, transactionDetails *Transactio
 						system.Transfer(system.TransferParam{
 							From:   importedFromWallet.PublicKey,
 							To:     importedToWallet.PublicKey,
-							Amount: uint64(transactionDetails.LamportAmount),
+							Amount: uint64(transactionDetails.LamportInt),
 						}),
 					},
 				}),

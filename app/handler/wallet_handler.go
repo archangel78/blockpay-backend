@@ -20,10 +20,14 @@ type WalletCreateResponse struct {
 }
 
 type Transaction struct {
-	TransactionId string `json:"transactionId"`
-	FromAccount   string `json:"fromAccount"`
-	ToAccount     string `json:"toAccount"`
-	TimeStamp     string `json:"ts"`
+	TransactionId     string `json:"transactionId"`
+	FromAccount       string `json:"fromAccount"`
+	ToAccount         string `json:"toAccount"`
+	ToWallet          string `json:"toWallet"`
+	TransactionAmount string `json:"transactionAmount"`
+	ToName            string `json:"name"`
+	FromName          string `json:"fromName"`
+	TimeStamp         string `json:"ts"`
 }
 
 type Wallet struct {
@@ -35,6 +39,7 @@ type Wallet struct {
 
 type TransactionResponse struct {
 	Transactions []Transaction `json:"transactions"`
+	Message      string        `json:"message"`
 }
 
 func CreateTransaction(db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload) {
@@ -65,20 +70,44 @@ func CreateTransaction(db *sql.DB, w http.ResponseWriter, r *http.Request, paylo
 		return
 	}
 
-	err = common.WriteTransaction(db, signature[:25], headers["Fromaccount"], headers["Toaccount"], "NA", headers["Amount"])
+	result, err := db.Query("select fullName from OtherDetails where accountName=?", headers["Toaccount"])
+	if err != nil {
+		common.RespondError(w, 500, "Some internal error occurred CTSEFNAM")
+		return
+	}
+
+	var toName string
+	var fromName string
+	for result.Next() {
+		result.Scan(&toName)
+		break
+	}
+
+	result, err = db.Query("select fullName from OtherDetails where accountName=?", headers["Fromaccount"])
+	if err != nil {
+		common.RespondError(w, 500, "Some internal error occurred CTSEFNAM")
+		return
+	}
+	for result.Next() {
+		result.Scan(&fromName)
+		break
+	}
+
+	err = common.WriteTransaction(db, signature[:25], headers["Fromaccount"], headers["Toaccount"], "NA", headers["Amount"], toName, fromName)
 
 	if err != nil {
 		fmt.Println(err)
 		common.RespondError(w, 500, "Some internal error occurred")
 		return
 	}
-	common.RespondJSON(w, 200, map[string]string{"message": "successful", "transactionId": signature[:25]})
+	common.RespondJSON(w, 200, map[string]string{"message": "successful", "transactionId": signature[:25], "name": toName})
 }
 
 func GetTransactionHistory(db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload) {
-	result, err := db.Query("select * from Transactions where fromAccount=?", payload.AccountName)
+	result, err := db.Query("select transactionId, fromAccount, toAccount, toWallet, transactionAmount, ts, toName, fromName from Transactions where fromAccount=? or toAccount=?", payload.AccountName, payload.AccountName)
 
 	if err != nil {
+		fmt.Println(err)
 		common.RespondError(w, 400, "Some internal error occurred GTHSEQ")
 		return
 	}
@@ -87,16 +116,56 @@ func GetTransactionHistory(db *sql.DB, w http.ResponseWriter, r *http.Request, p
 
 	for result.Next() {
 		var newTransaction Transaction
-		err = result.Scan(&newTransaction.TransactionId, &newTransaction.FromAccount, &newTransaction.ToAccount, &newTransaction.TransactionId)
+		err = result.Scan(&newTransaction.TransactionId, &newTransaction.FromAccount, &newTransaction.ToAccount, &newTransaction.ToWallet, &newTransaction.TransactionAmount, &newTransaction.TimeStamp, &newTransaction.ToName, &newTransaction.FromName)
 		transactionHistory = append(transactionHistory, newTransaction)
 
 		if err != nil {
+			fmt.Println(err)
 			common.RespondError(w, 400, "Some internal error occurred GTHTHARN")
 			return
 		}
 	}
-	common.RespondJSON(w, 200, TransactionResponse{Transactions: transactionHistory})
+	reverseTransactionHistory := []Transaction{}
+	for i := len(transactionHistory) - 1; i >= 0; i-- {
+		reverseTransactionHistory = append(reverseTransactionHistory, transactionHistory[i])
+	}
+	common.RespondJSON(w, 200, TransactionResponse{Transactions: reverseTransactionHistory, Message: "successful"})
 	return
+}
+
+func GetBalance(db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload) {
+	result, err := db.Query("select walletPubKey from Wallet where accountName=?", payload.AccountName)
+
+	if err != nil {
+		common.RespondError(w, 400, "Some internal error occurred GBSEQRY")
+		return
+	}
+
+	for result.Next() {
+		var wallet Wallet
+		err = result.Scan(&wallet.WalletPubKey)
+		if err != nil {
+			fmt.Print(err)
+			common.RespondError(w, 500, "Some internal error occurred GBSCN")
+			return
+		}
+
+		c := client.NewClient(rpc.DevnetRPCEndpoint)
+		balance, err := c.GetBalance(
+			context.Background(),
+			wallet.WalletPubKey,
+		)
+		if err != nil {
+			fmt.Print(err)
+			common.RespondError(w, 500, "Some internal error occurred GBGBERR")
+			return
+		}
+		lampBalance := float32(balance)
+		solBalance := fmt.Sprintf("%v", lampBalance*0.000000001)
+		common.RespondJSON(w, 200, map[string]string{"message": "successful", "balance": solBalance})
+		return
+	}
+	common.RespondError(w, 400, "Invalid Account")
 }
 
 func VerifyAmount(db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload) {

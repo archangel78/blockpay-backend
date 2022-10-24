@@ -26,8 +26,8 @@ func GetPreparedStatement(db *sql.DB, preparedString string) (*sql.Stmt, error) 
 	return stmt, err
 }
 
-func WriteTransaction(db *sql.DB, transactionId string, fromAccount string, toAccount string, toWallet string, transactionAmount string) error {
-	_, err := db.Exec("INSERT INTO Transactions (transactionId, fromAccount, toAccount, toWallet, transactionAmount) VALUES (?, ?, ?, ?, ?)", transactionId, fromAccount, toAccount, toWallet, transactionAmount)
+func WriteTransaction(db *sql.DB, transactionId string, fromAccount string, toAccount string, toWallet string, transactionAmount string, toName string, fromName string) error {
+	_, err := db.Exec("INSERT INTO Transactions (transactionId, fromAccount, toAccount, toWallet, transactionAmount, toName, fromName) VALUES (?, ?, ?, ?, ?, ?, ?)", transactionId, fromAccount, toAccount, toWallet, transactionAmount, toName, fromName)
 
 	if err != nil {
 		fmt.Println(err)

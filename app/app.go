@@ -61,6 +61,7 @@ func (app App) SetRoutes() {
 	app.Get("/get_transaction_history", app.handleAuthenticatedRequest(handler.GetTransactionHistory))
 	app.Post("/create_transaction", app.handleAuthenticatedRequest(handler.CreateTransaction))
 	app.Get("/verify_send_amount", app.handleAuthenticatedRequest(handler.VerifyAmount))
+	app.Get("/get_balance", app.handleAuthenticatedRequest(handler.GetBalance))
 }	
 
 func (app App) Get(path string, handler http.HandlerFunc) {
