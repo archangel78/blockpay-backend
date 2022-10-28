@@ -52,7 +52,9 @@ func (app App) SetRoutes() {
 	app.Post("/login", app.handleRequest(handler.Login))
 	app.Post("/pre_signup_verify", app.handleRequest(handler.PreSignUpVerify))
 	app.Get("/check_account", app.handleAuthenticatedRequest(handler.CheckAccount))
+	app.Get("/check_phone", app.handleAuthenticatedRequest(handler.CheckPhoneNumber))
 	app.Post("/get_contacts", app.handleAuthenticatedRequest(handler.GetValidContacts))
+	app.Get("/verify_phoneno", app.handleAuthenticatedRequest(handler.VerifyPhoneNumber))
 	
 	// Handle session endpoints
 	app.Post("/renew_token", handler.RenewToken)

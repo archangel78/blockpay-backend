@@ -76,6 +76,69 @@ func GetValidContacts(db *sql.DB, w http.ResponseWriter, r *http.Request, payloa
 	common.RespondJSON(w, 200, map[string]string{"message": "successful", "indices": string(jsonIndices)})
 }
 
+func VerifyPhoneNumber(db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload) {
+	headers, err := common.VerifyHeaders([]string{"Phoneno"}, r.Header)
+	if err != nil {
+		common.RespondError(w, 400, err.Error())
+		return
+	}
+	phoneNumber := headers["Phoneno"]
+
+	if len(phoneNumber) < 8 {
+		common.RespondError(w, 409, "Phone number doesn't exist")
+		return
+	}
+
+	if phoneNumber[:1] == "+" {
+		if phoneNumber[:3] == "+91" {
+			phoneNumber = phoneNumber[3:]
+		} else {
+			common.RespondError(w, 409, "Phone number doesn't exist")
+			return
+		}
+	}
+	phoneNumber = strings.Replace(phoneNumber, " ", "", -1)
+
+	result, err := db.Query("select accountName from Users where phoneNumber=?", phoneNumber)
+
+	if err != nil {
+		common.RespondError(w, 500, "Some internal error occurred VPNSE1")
+		return
+	}
+	for result.Next() {
+		var accountName string
+		err = result.Scan(&accountName)
+		if err != nil {
+			common.RespondError(w, 500, "Some internal error occurred VPNSCN1")
+			return
+		}
+
+		result1, err := db.Query("select fullName from OtherDetails where accountName=?", accountName)
+		if err != nil {
+			common.RespondError(w, 500, "Some internal error occurred VPNSE1")
+			return
+		}
+
+		for result1.Next() {
+			var fullName string
+			err = result1.Scan(&fullName)
+			if err != nil {
+				fmt.Println(err)
+				common.RespondError(w, 500, "Some internal error occurred VPNSCN1")
+				return
+			}
+			if payload.AccountName != accountName {
+				common.RespondJSON(w, 200, map[string]string{"message": "successful", "fullName": fullName, "accountName": accountName})
+			} else {
+				common.RespondError(w, 400, "Can't send money to yourself")
+			}
+			return
+		}
+		break
+	}
+	common.RespondError(w, 409, "Phone number doesn't exist")
+}
+
 func contains(s []int, e int) bool {
 	for _, a := range s {
 		if a == e {

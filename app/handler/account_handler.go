@@ -279,12 +279,74 @@ func CheckAccount(db *sql.DB, w http.ResponseWriter, r *http.Request, payload se
 			return
 		}
 		if accountDetails.AccountName != payload.AccountName {
-			common.RespondJSON(w, 200, map[string]string{"message": "successful", "emailid": accountDetails.EmailId, "username": accountDetails.AccountName})
-			return
+			result1, err := db.Query("select fullName from OtherDetails where accountName=?", accountDetails.AccountName)
+			if err != nil {
+				common.RespondError(w, 500, "Some internal error occurred CACCSE2")
+				return
+			}
+
+			for result1.Next() {
+				var fullName string
+				err = result1.Scan(&fullName)
+				if err != nil {
+					common.RespondError(w, 500, "Some internal error occurred CACCSCN2")
+					return
+				}
+				common.RespondJSON(w, 200, map[string]string{"message": "successful", "emailid": accountDetails.EmailId, "username": accountDetails.AccountName, "fullName": fullName})
+				return
+			}
+
 		} else {
 			common.RespondError(w, 400, "Can't send money to yourself")
 			return
 		}
 	}
 	common.RespondError(w, 400, "Username does not exist")
+}
+
+func CheckPhoneNumber(db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload) {
+	reqHeaders, err := common.VerifyHeaders([]string{"Phoneno"}, r.Header)
+	if err != nil {
+		common.RespondError(w, 400, err.Error())
+		return
+	}
+	result, err := db.Query("select emailId, accountName from Users where phoneNumber=?", reqHeaders["Phoneno"])
+
+	if err != nil {
+		common.RespondError(w, 500, "Some internal error occurred CACCSEQRY")
+		return
+	}
+
+	for result.Next() {
+		var accountDetails AccountDetails
+		err = result.Scan(&accountDetails.EmailId, &accountDetails.AccountName)
+		if err != nil {
+			print(err.Error())
+			common.RespondError(w, 500, "Some internal error occurred CACCSCN")
+			return
+		}
+		if accountDetails.AccountName != payload.AccountName {
+			result1, err := db.Query("select fullName from OtherDetails where accountName=?", accountDetails.AccountName)
+			if err != nil {
+				common.RespondError(w, 500, "Some internal error occurred CACCSE2")
+				return
+			}
+
+			for result1.Next() {
+				var fullName string
+				err = result1.Scan(&fullName)
+				if err != nil {
+					common.RespondError(w, 500, "Some internal error occurred CACCSCN2")
+					return
+				}
+				common.RespondJSON(w, 200, map[string]string{"message": "successful", "emailid": accountDetails.EmailId, "username": accountDetails.AccountName, "fullName": fullName})
+				return
+			}
+
+		} else {
+			common.RespondError(w, 400, "Can't send money to yourself")
+			return
+		}
+	}
+	common.RespondError(w, 400, "Phone number does not have an account")
 }
