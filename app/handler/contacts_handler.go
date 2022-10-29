@@ -83,6 +83,16 @@ func VerifyPhoneNumber(db *sql.DB, w http.ResponseWriter, r *http.Request, paylo
 		return
 	}
 	phoneNumber := headers["Phoneno"]
+	strings.Replace(phoneNumber, " ", "", -1)
+
+	if phoneNumber[:1] == "+" {
+		if phoneNumber[:3] != "+91" {
+			common.RespondError(w, 409, "Phone number doesn't exist")
+			return
+		} else {
+			phoneNumber = phoneNumber[3:]
+		}
+	}
 
 	if len(phoneNumber) < 8 {
 		common.RespondError(w, 409, "Phone number doesn't exist")
