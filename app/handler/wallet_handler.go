@@ -155,6 +155,13 @@ func GetBalance(db *sql.DB, w http.ResponseWriter, r *http.Request, payload sess
 			context.Background(),
 			wallet.WalletPubKey,
 		)
+
+		_, err = c.RequestAirdrop(
+			context.TODO(), 
+			wallet.WalletPubKey, 
+			100e9,)
+		print(err)
+
 		if err != nil {
 			fmt.Print(err)
 			common.RespondError(w, 500, "Some internal error occurred GBGBERR")

@@ -34,7 +34,6 @@ func Login(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	var err error
 	aName, aNameLogin := headers["Accountname"]
 	emailId, emailLogin := headers["Emailid"]
-	phoneNo, phoneLogin := headers["Phoneno"]
 
 	if aNameLogin {
 		result, err = db.Query("select * from Users where accountName=?", aName[0])
@@ -48,13 +47,6 @@ func Login(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 			common.RespondError(w, 400, "Some internal error occurred LISEEID")
-			return
-		}
-	} else if phoneLogin {
-		result, err = db.Query("select * from Users where phoneNumber=?", string(phoneNo[0]))
-
-		if err != nil {
-			common.RespondError(w, 400, "Some internal error occurred LISEPNO")
 			return
 		}
 	} else {
@@ -104,9 +96,10 @@ func Login(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		break
+		common.RespondError(w, 401, "Unauthorized")
+		return
 	}
-	common.RespondError(w, 401, "Unauthorized")
+	common.RespondError(w, 401, "Account does not exist")
 }
 
 func CreateAccount(db *sql.DB, w http.ResponseWriter, r *http.Request) {
@@ -144,6 +137,12 @@ func CreateAccount(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 		common.RespondError(w, 500, "Some internal error occurred CAISODEXEC")
 		return
 	}
+
+	// _, err = db.Exec("INSERT INTO OtherDetails (accountName, fullName, deviceToken) VALUES (?, ?, ?)", neededParams["Accountname"], neededParams["Name"])
+	// if err != nil {
+	// 	common.RespondError(w, 500, "Some internal error occurred CAISODEXEC")
+	// 	return
+	// }
 
 	walletRes, err := common.CreateWallet(db, neededParams["Accountname"])
 	if err != nil {

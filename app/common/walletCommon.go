@@ -63,6 +63,7 @@ func CreateWallet(db *sql.DB, accountName string) (*WalletCreateResponse, error)
 		fmt.Println(err)
 		return nil, err
 	}
+
 	response := WalletCreateResponse{
 		PublicKey: wallet.PublicKey.ToBase58(),
 		PrivateId: walletPrivId,
