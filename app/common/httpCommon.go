@@ -1,11 +1,58 @@
 package common
 
 import (
+	"os"
+	"fmt"
+	"bytes"
+	"database/sql"
 	"encoding/json"
+	"io/ioutil"
 	"errors"
 	"net/http"
 	"net/url"
 )
+
+func SendNotification (db *sql.DB, accountName string, message string) {
+	result, err := db.Query("select deviceToken from OtherDetails where accountName=?", accountName)
+	if err != nil {
+		return
+	}
+	for result.Next() {
+		var deviceToken string
+		result.Scan(&deviceToken)
+
+		var pushyApiKey = os.Getenv("PUSHY_API_KEY")
+		
+		var postBody = `{
+			"to": "`+deviceToken+`",
+			"data": {
+				"message": "`+message+`"
+			}
+		}`
+		
+		if err != nil {
+			fmt.Println(err)
+			return
+		}		
+
+		responseBody := bytes.NewBuffer([]byte(postBody))
+		resp, err := http.Post("https://api.pushy.me/push?api_key="+pushyApiKey, "application/json", responseBody)
+
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		sb := string(body)
+		fmt.Println(sb)
+		return			 
+	}
+}
 
 func VerifyUrlParams (expectedParams []string, urlParams url.Values) (bool, error, map[string]string) {
 	output := make(map[string]string)

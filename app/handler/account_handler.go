@@ -6,9 +6,7 @@ import (
 	"net/http"
 	"net/mail"
 	"strings"
-
 	"golang.org/x/crypto/bcrypt"
-
 	"github.com/archangel78/blockpay-backend/app/common"
 	"github.com/archangel78/blockpay-backend/app/session"
 )
@@ -23,15 +21,15 @@ type AccountDetails struct {
 
 func Login(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	headers := r.Header
-	password, passwordExists := headers["Password"]
+	expectedParams := []string{"Devicetoken", "Password"}
+	neededParams, err := common.VerifyHeaders(expectedParams, headers)
 
-	if !passwordExists {
-		common.RespondError(w, 400, "Password header does not exist")
+	if err!= nil {
+		common.RespondError(w, 400, err.Error())
 		return
 	}
 
 	var result *sql.Rows
-	var err error
 	aName, aNameLogin := headers["Accountname"]
 	emailId, emailLogin := headers["Emailid"]
 
@@ -39,6 +37,7 @@ func Login(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 		result, err = db.Query("select * from Users where accountName=?", aName[0])
 
 		if err != nil {
+			fmt.Println(err)
 			common.RespondError(w, 400, "Some internal error occurred LISEAN")
 			return
 		}
@@ -63,7 +62,7 @@ func Login(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 			common.RespondError(w, 400, "Some internal error occurred LIANSC")
 			return
 		}
-		err = bcrypt.CompareHashAndPassword([]byte(accountDetails.PasswordHash), []byte(password[0]))
+		err = bcrypt.CompareHashAndPassword([]byte(accountDetails.PasswordHash), []byte(neededParams["Password"]))
 		if err == nil {
 			jwtTokens, err := session.GenerateTokenPair(accountDetails.AccountName, accountDetails.EmailId)
 			if err != nil {
@@ -87,6 +86,14 @@ func Login(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 					common.RespondError(w, 500, "Some internal error occurred")
 					return
 				}
+
+				_, err = db.Exec("UPDATE OtherDetails SET deviceToken=? WHERE accountName=?", neededParams["Devicetoken"], accountDetails.AccountName)
+
+				if err != nil {
+					common.RespondError(w, 500, "Some internal error occurred LGISTDVT")
+					return
+				}
+			
 				common.RespondJSON(w, 200, map[string]string{"accessToken": jwtTokens.AccessTokenSigned, "refreshToken": jwtTokens.RefreshTokenSigned, "message": "successful", "walletPrivId": walletPrivId, "walletPubKey": walletPubKey, "accountName": accountDetails.AccountName})
 				return
 			}
@@ -106,6 +113,8 @@ func CreateAccount(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	headers := r.Header
 	expectedParams := []string{"Emailid", "Accountname", "Password", "Phoneno", "Countrycode", "Name"}
 	neededParams, err := common.VerifyHeaders(expectedParams, headers)
+	deviceToken, deviceTokenExists := r.Header["Devicetoken"]
+
 	if err != nil {
 		common.RespondError(w, 400, err.Error())
 		return
@@ -132,18 +141,21 @@ func CreateAccount(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = db.Exec("INSERT INTO OtherDetails (accountName, fullName) VALUES (?, ?)", neededParams["Accountname"], neededParams["Name"])
-	if err != nil {
-		common.RespondError(w, 500, "Some internal error occurred CAISODEXEC")
-		return
+
+	if deviceTokenExists {
+		_, err = db.Exec("INSERT INTO OtherDetails (accountName, fullName, deviceToken) VALUES (?, ?, ?)", neededParams["Accountname"], neededParams["Name"], deviceToken[0])
+		if err != nil {
+			fmt.Println(err)
+			common.RespondError(w, 500, "Some internal error occurred CAISODEXEC1")
+			return
+		}
+	} else {
+		_, err = db.Exec("INSERT INTO OtherDetails (accountName, fullName, deviceToken) VALUES (?, ?, ?)", neededParams["Accountname"], neededParams["Name"])
+		if err != nil {
+			common.RespondError(w, 500, "Some internal error occurred CAISODEXEC2")
+			return
+		}
 	}
-
-	// _, err = db.Exec("INSERT INTO OtherDetails (accountName, fullName, deviceToken) VALUES (?, ?, ?)", neededParams["Accountname"], neededParams["Name"])
-	// if err != nil {
-	// 	common.RespondError(w, 500, "Some internal error occurred CAISODEXEC")
-	// 	return
-	// }
-
 	walletRes, err := common.CreateWallet(db, neededParams["Accountname"])
 	if err != nil {
 		common.RespondError(w, 500, "Some internal eroor occurred CAWCRT")
@@ -273,7 +285,7 @@ func CheckAccount(db *sql.DB, w http.ResponseWriter, r *http.Request, payload se
 		var accountDetails AccountDetails
 		err = result.Scan(&accountDetails.CountryCode, &accountDetails.PhonenNo, &accountDetails.AccountName, &accountDetails.EmailId, &accountDetails.PasswordHash)
 		if err != nil {
-			print(err.Error())
+			fmt.Println(err.Error())
 			common.RespondError(w, 500, "Some internal error occurred CACCSCN")
 			return
 		}
@@ -320,7 +332,7 @@ func CheckPhoneNumber(db *sql.DB, w http.ResponseWriter, r *http.Request, payloa
 		var accountDetails AccountDetails
 		err = result.Scan(&accountDetails.EmailId, &accountDetails.AccountName)
 		if err != nil {
-			print(err.Error())
+			fmt.Println(err.Error())
 			common.RespondError(w, 500, "Some internal error occurred CACCSCN")
 			return
 		}

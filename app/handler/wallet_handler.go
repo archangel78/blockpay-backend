@@ -101,6 +101,7 @@ func CreateTransaction(db *sql.DB, w http.ResponseWriter, r *http.Request, paylo
 		return
 	}
 	common.RespondJSON(w, 200, map[string]string{"message": "successful", "transactionId": signature[:25], "name": toName})
+	common.SendNotification(db, headers["Toaccount"], "Received "+headers["Amount"]+" SOL:Transaction received from "+toName+":Payment Received:"+toName+":"+headers["Amount"]+" SOL:"+"Account Id:"+headers["Toaccount"]+":"+signature[:25])
 }
 
 func GetTransactionHistory(db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload) {
@@ -160,7 +161,7 @@ func GetBalance(db *sql.DB, w http.ResponseWriter, r *http.Request, payload sess
 			context.TODO(), 
 			wallet.WalletPubKey, 
 			100e9,)
-		print(err)
+		fmt.Println(err)
 
 		if err != nil {
 			fmt.Print(err)
