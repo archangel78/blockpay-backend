@@ -104,6 +104,70 @@ func CreateTransaction(db *sql.DB, w http.ResponseWriter, r *http.Request, paylo
 	common.SendNotification(db, headers["Toaccount"], "Received "+headers["Amount"]+" SOL:Transaction received from "+toName+":Payment Received:"+toName+":"+headers["Amount"]+" SOL:"+"Account Id:"+headers["Toaccount"]+":"+signature[:25])
 }
 
+func CreateOfflineTransaction(db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload) {
+	headers, err := common.VerifyHeaders([]string{"Transactionkey", "Iv", "Fromaccount"}, r.Header)
+	if err != nil {
+		common.RespondError(w, 400, err.Error())
+		return
+	}
+	fmt.Println(headers);
+	_, transactionDetails, err := common.VerifyOfflineTransactionKey(db,  headers["Fromaccount"], payload.AccountName, headers["Transactionkey"], headers["Iv"])
+	if err != nil {
+		common.RespondError(w, 400, err.Error())
+		return
+	}
+
+	// Uncomment to skip transaction verification
+	// lamportAmount, err := strconv.ParseFloat(headers["Amount"], 64)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	common.RespondError(w, 500, "Some internal error occurred")
+	// 	return
+	// }
+	// transactionDetails := &common.TransactionDetails{FromAccount: headers["Fromaccount"], ToAccount: headers["Toaccount"], LamportAmount: lamportAmount}
+
+	_, signature, err := common.SendSol(db, payload, transactionDetails)
+	if err != nil {
+		fmt.Println(err)
+		common.RespondError(w, 500, "Some internal error occurred")
+		return
+	}
+
+	result, err := db.Query("select fullName from OtherDetails where accountName=?", headers["Toaccount"])
+	if err != nil {
+		common.RespondError(w, 500, "Some internal error occurred CTSEFNAM")
+		return
+	}
+
+	var toName string
+	var fromName string
+	for result.Next() {
+		result.Scan(&toName)
+		break
+	}
+
+	result, err = db.Query("select fullName from OtherDetails where accountName=?", headers["Fromaccount"])
+	if err != nil {
+		common.RespondError(w, 500, "Some internal error occurred CTSEFNAM")
+		return
+	}
+	for result.Next() {
+		result.Scan(&fromName)
+		break
+	}
+
+	err = common.WriteTransaction(db, signature[:25], headers["Fromaccount"], headers["Toaccount"], "NA", headers["Amount"], toName, fromName)
+
+	if err != nil {
+		fmt.Println(err)
+		common.RespondError(w, 500, "Some internal error occurred")
+		return
+	}
+	common.RespondJSON(w, 200, map[string]string{"message": "successful", "transactionId": signature[:25], "name": toName})
+	common.SendNotification(db, headers["Toaccount"], "Received "+headers["Amount"]+" SOL:Transaction received from "+toName+":Payment Received:"+toName+":"+headers["Amount"]+" SOL:"+"Account Id:"+headers["Toaccount"]+":"+signature[:25])
+}
+
+
 func GetTransactionHistory(db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload) {
 	result, err := db.Query("select transactionId, fromAccount, toAccount, toWallet, transactionAmount, ts, toName, fromName from Transactions where fromAccount=? or toAccount=?", payload.AccountName, payload.AccountName)
 

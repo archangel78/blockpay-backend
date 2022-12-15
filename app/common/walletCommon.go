@@ -128,6 +128,59 @@ func VerifyTransactionKey(db *sql.DB, fromAccount string, toAccount string, send
 	return false, nil, errors.New("Some unknown error")
 }
 
+func VerifyOfflineTransactionKey(db *sql.DB, fromAccount string, toAccount string, transactionKey string, ivStr string) (bool, *TransactionDetails, error) {
+	result, err := db.Query("select walletPrivId, walletPubKey from Wallet where accountName=?", string(fromAccount))
+	for result.Next() {
+		var walletDetails WalletDetails
+		err = result.Scan(&walletDetails.walletPrivId, &walletDetails.walletPubKey)
+		if err != nil {
+			fmt.Println(err)
+			return false, nil, err
+		}
+		transactionDetails, err := decrypt([]byte(walletDetails.walletPrivId), transactionKey, ivStr)
+		if err != nil {
+			fmt.Println(err)
+			return false, nil, err
+		}
+
+		if fromAccount != transactionDetails.FromAccount {
+			return false, nil, errors.New("Invalid From Account")
+		}
+
+		if toAccount != transactionDetails.ToAccount {
+			return false, nil, errors.New("Invalid To Account")
+		}
+
+		lamportAmount, err := strconv.ParseFloat(transactionDetails.Amount, 64)
+		if err != nil {
+			return false, nil, err
+		}
+		lamportAmount = lamportAmount / 0.000000001
+		if transactionDetails.Prover != walletDetails.walletPrivId[:5] {
+			return false, nil, errors.New("Invalid prover")
+		}
+
+		c := client.NewClient(rpc.DevnetRPCEndpoint)
+		balance, err := c.GetBalance(
+			context.Background(),
+			walletDetails.walletPubKey,
+		)
+		if err != nil {
+			fmt.Print(err)
+			return false, nil, err
+		}
+
+		if lamportAmount >= float64(balance) {
+			return false, nil, errors.New("Amount greater than balance")
+		}
+		transactionDetails.LamportAmount = lamportAmount
+		transactionDetails.LamportInt = int(lamportAmount)
+
+		return true, transactionDetails, nil
+	}
+	return false, nil, errors.New("Some unknown error")
+}
+
 func decrypt(key []byte, cryptoText string, ivStr string) (*TransactionDetails, error) {
 	ciphertext, _ := hex.DecodeString(cryptoText)
 	iv, _ := hex.DecodeString(ivStr)
@@ -144,6 +197,7 @@ func decrypt(key []byte, cryptoText string, ivStr string) (*TransactionDetails, 
 	plaintext = strings.TrimSpace(plaintext)
 	plaintext = strings.Replace(plaintext, "\b", "", -1)
 	var transactionDetails TransactionDetails
+	fmt.Println(clearString(strings.Replace(plaintext, "'", "\"", -1)))
 	err = json.Unmarshal([]byte(clearString(strings.Replace(plaintext, "'", "\"", -1))), &transactionDetails)
 
 	if err != nil {
