@@ -101,7 +101,7 @@ func CreateTransaction(db *sql.DB, w http.ResponseWriter, r *http.Request, paylo
 		return
 	}
 	common.RespondJSON(w, 200, map[string]string{"message": "successful", "transactionId": signature[:25], "name": toName})
-	common.SendNotification(db, headers["Toaccount"], "Received "+headers["Amount"]+" SOL:Transaction received from "+toName+":Payment Received:"+toName+":"+headers["Amount"]+" SOL:"+"Account Id:"+headers["Toaccount"]+":"+signature[:25])
+	common.SendNotification(db, headers["Toaccount"], "Received "+headers["Amount"]+" SOL:Transaction received from "+toName+":Payment Received:"+fromName+":"+headers["Amount"]+" SOL:"+"Account Id:"+headers["Toaccount"]+":"+signature[:25])
 }
 
 func CreateOfflineTransaction(db *sql.DB, w http.ResponseWriter, r *http.Request, payload session.Payload) {
